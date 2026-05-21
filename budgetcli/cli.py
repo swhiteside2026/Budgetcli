@@ -6,6 +6,8 @@ from budgetcli.models import VALID_CATEGORIES, Transaction
 from budgetcli.reports import category_breakdown, monthly_summary, overall_balance
 from budgetcli.storage import add_transaction, clear_all, load_transactions
 
+LIST_LIMIT = 20
+
 
 def cmd_add(args: argparse.Namespace) -> None:
     try:
@@ -51,7 +53,7 @@ def cmd_report(args: argparse.Namespace) -> None:
 
 def cmd_list(args: argparse.Namespace) -> None:
     transactions = load_transactions()
-    recent = transactions[-20:]
+    recent = transactions[-LIST_LIMIT:]
     if not recent:
         print("No transactions found.")
         return

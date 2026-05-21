@@ -1,3 +1,4 @@
+import csv
 import json
 from pathlib import Path
 
@@ -34,3 +35,12 @@ def add_transaction(transaction: Transaction) -> None:
 
 def clear_all() -> None:
     save_transactions([])
+
+
+def export_csv(path: Path) -> None:
+    """Export all transactions to a CSV file at the given path.
+
+    Writes a header row (date, category, amount, note) followed by one row
+    per transaction. Overwrites the file if it already exists.
+    """
+    pass

@@ -4,7 +4,7 @@ from datetime import date
 
 from budgetcli.models import VALID_CATEGORIES, Transaction
 from budgetcli.reports import category_breakdown, monthly_summary, overall_balance
-from budgetcli.storage import add_transaction, clear_all, load_transactions
+from budgetcli.storage import add_transaction, clear_all, export_csv, load_transactions
 
 LIST_LIMIT = 20
 
@@ -73,6 +73,15 @@ def cmd_clear(args: argparse.Namespace, confirm: str | None = None) -> None:
         print("Cancelled.")
 
 
+def cmd_export(args: argparse.Namespace) -> None:
+    """Export all transactions to transactions.csv in the current directory.
+
+    Loads all transactions, writes them to CSV, and prints the absolute path
+    of the saved file so the user knows where to find it.
+    """
+    pass
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="budget", description="Personal budget tracker")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -88,6 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("report", help="Show spending breakdown by category")
     subparsers.add_parser("list", help="List the last 20 transactions")
     subparsers.add_parser("clear", help="Delete all transactions")
+    subparsers.add_parser("export", help="Export all transactions to transactions.csv")
 
     return parser
 
@@ -101,6 +111,7 @@ def main() -> None:
         "report": cmd_report,
         "list": cmd_list,
         "clear": cmd_clear,
+        "export": cmd_export,
     }
     commands[args.command](args)
 

@@ -48,4 +48,4 @@ def export_csv(path: Path) -> None:
         writer = csv.writer(f)
         writer.writerow(["date", "category", "amount", "note"])
         for t in transactions:
-            writer.writerow([t.date.isoformat(), t.category, t.amount, t.note])
+            writer.writerow([t.date.isoformat(), t.category, round(t.amount, 2), t.note])

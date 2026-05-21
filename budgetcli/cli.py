@@ -61,8 +61,9 @@ def cmd_list(args: argparse.Namespace) -> None:
         print(f"{t.date}  {sign}${t.amount:<10.2f}  {t.category:<16}{note_str}")
 
 
-def cmd_clear(args: argparse.Namespace) -> None:
-    confirm = input('Type "yes" to delete all transactions: ')
+def cmd_clear(args: argparse.Namespace, confirm: str | None = None) -> None:
+    if confirm is None:
+        confirm = input('Type "yes" to delete all transactions: ')
     if confirm.strip().lower() == "yes":
         clear_all()
         print("All transactions cleared.")

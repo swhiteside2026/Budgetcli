@@ -1,6 +1,7 @@
 import argparse
 import sys
 from datetime import date
+from pathlib import Path
 
 from budgetcli.models import VALID_CATEGORIES, Transaction
 from budgetcli.reports import category_breakdown, monthly_summary, overall_balance
@@ -79,7 +80,9 @@ def cmd_export(args: argparse.Namespace) -> None:
     Loads all transactions, writes them to CSV, and prints the absolute path
     of the saved file so the user knows where to find it.
     """
-    pass
+    path = Path("transactions.csv").resolve()
+    export_csv(path)
+    print(f"Exported to {path}")
 
 
 def build_parser() -> argparse.ArgumentParser:

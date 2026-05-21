@@ -28,3 +28,5 @@ Run locally: python -m budgetcli.cli add 45.50 food --note "Groceries"
   creates it automatically on first run
 - Use python -m budgetcli.cli not budgetcli directly — the scripts 
   folder may not be on PATH
+- transactions.csv cannot be overwritten while open in Excel — close 
+  it before running the export command again

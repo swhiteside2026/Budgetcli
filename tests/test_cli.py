@@ -1,10 +1,13 @@
 import argparse
+import csv
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 import budgetcli.storage as storage
 from budgetcli.cli import cmd_export
+from budgetcli.models import Transaction
 
 
 @pytest.fixture(autouse=True)
@@ -19,25 +22,40 @@ def _args() -> argparse.Namespace:
 
 
 def test_export_creates_csv_in_current_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """export saves transactions.csv in the current working directory."""
-    pass
+    monkeypatch.chdir(tmp_path)
+    cmd_export(_args())
+    assert (tmp_path / "transactions.csv").exists()
 
 
 def test_export_csv_contains_correct_header(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """CSV first row is: date, category, amount, note."""
-    pass
+    monkeypatch.chdir(tmp_path)
+    cmd_export(_args())
+    with open(tmp_path / "transactions.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    assert rows[0] == ["date", "category", "amount", "note"]
 
 
 def test_export_csv_row_matches_transaction(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Each transaction is written as a correctly ordered data row."""
-    pass
+    monkeypatch.chdir(tmp_path)
+    t = Transaction(amount=99.99, category="transport", date=date(2026, 5, 10), note="train")
+    storage.add_transaction(t)
+    cmd_export(_args())
+    with open(tmp_path / "transactions.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    assert rows[1] == ["2026-05-10", "transport", "99.99", "train"]
 
 
 def test_export_empty_ledger_writes_header_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """With no transactions, the CSV contains only the header row."""
-    pass
+    monkeypatch.chdir(tmp_path)
+    cmd_export(_args())
+    with open(tmp_path / "transactions.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    assert len(rows) == 1
 
 
 def test_export_prints_output_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
-    """cmd_export prints the absolute path of the saved file."""
-    pass
+    monkeypatch.chdir(tmp_path)
+    cmd_export(_args())
+    output = capsys.readouterr().out
+    expected = str((tmp_path / "transactions.csv").resolve())
+    assert expected in output

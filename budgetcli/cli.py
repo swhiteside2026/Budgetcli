@@ -70,7 +70,7 @@ def cmd_clear(args: argparse.Namespace) -> None:
         print("Cancelled.")
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="budget", description="Personal budget tracker")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -86,7 +86,11 @@ def main() -> None:
     subparsers.add_parser("list", help="List the last 20 transactions")
     subparsers.add_parser("clear", help="Delete all transactions")
 
-    args = parser.parse_args()
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
 
     commands = {
         "add": cmd_add,

@@ -1,4 +1,5 @@
 import argparse
+import sys
 from datetime import date
 
 from budgetcli.models import VALID_CATEGORIES, Transaction
@@ -18,6 +19,7 @@ def cmd_add(args: argparse.Namespace) -> None:
         print(f"Added: {args.category} ${args.amount:.2f}")
     except ValueError as e:
         print(f"Error: {e}")
+        sys.exit(1)
 
 
 def cmd_summary(args: argparse.Namespace) -> None:

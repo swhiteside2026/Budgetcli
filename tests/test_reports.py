@@ -1,7 +1,8 @@
 from datetime import date
+from unittest.mock import patch
 
 from budgetcli.models import Transaction
-from budgetcli.reports import category_breakdown, monthly_summary, overall_balance
+from budgetcli.reports import category_breakdown, check_budget, monthly_summary, overall_balance
 
 
 def _t(amount: float, category: str, year: int, month: int, day: int = 1) -> Transaction:
@@ -64,3 +65,83 @@ def test_overall_balance() -> None:
 
 def test_overall_balance_empty() -> None:
     assert overall_balance([]) == 0.0
+
+
+# --- check_budget tests ---
+
+_BUDGET_TRANSACTIONS: list[Transaction] = [
+    _t(2000.0, "income",    2026, 5),
+    _t(  80.0, "food",      2026, 5),
+    _t(  30.0, "food",      2026, 5),
+    _t(  40.0, "transport", 2026, 5),
+    _t(  50.0, "food",      2026, 4),  # previous month — should be excluded
+]
+
+
+@patch("budgetcli.reports.date")
+def test_check_budget_under_budget(mock_date) -> None:
+    mock_date.today.return_value = date(2026, 5, 26)
+    mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+    result = check_budget("food", 200.0, _BUDGET_TRANSACTIONS)
+    assert result["spent"] == 110.0
+    assert result["remaining"] == 90.0
+    assert result["over_budget"] is False
+
+
+@patch("budgetcli.reports.date")
+def test_check_budget_over_budget(mock_date) -> None:
+    mock_date.today.return_value = date(2026, 5, 26)
+    mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+    result = check_budget("food", 100.0, _BUDGET_TRANSACTIONS)
+    assert result["spent"] == 110.0
+    assert result["remaining"] == -10.0
+    assert result["over_budget"] is True
+
+
+@patch("budgetcli.reports.date")
+def test_check_budget_exactly_at_limit(mock_date) -> None:
+    mock_date.today.return_value = date(2026, 5, 26)
+    mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+    result = check_budget("food", 110.0, _BUDGET_TRANSACTIONS)
+    assert result["spent"] == 110.0
+    assert result["remaining"] == 0.0
+    assert result["over_budget"] is False
+
+
+@patch("budgetcli.reports.date")
+def test_check_budget_no_spending_in_category(mock_date) -> None:
+    mock_date.today.return_value = date(2026, 5, 26)
+    mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+    result = check_budget("entertainment", 50.0, _BUDGET_TRANSACTIONS)
+    assert result["spent"] == 0.0
+    assert result["remaining"] == 50.0
+    assert result["over_budget"] is False
+
+
+@patch("budgetcli.reports.date")
+def test_check_budget_excludes_income(mock_date) -> None:
+    mock_date.today.return_value = date(2026, 5, 26)
+    mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+    result = check_budget("income", 500.0, _BUDGET_TRANSACTIONS)
+    assert result["spent"] == 0.0
+    assert result["remaining"] == 500.0
+    assert result["over_budget"] is False
+
+
+@patch("budgetcli.reports.date")
+def test_check_budget_excludes_other_months(mock_date) -> None:
+    mock_date.today.return_value = date(2026, 5, 26)
+    mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+    result = check_budget("food", 200.0, _BUDGET_TRANSACTIONS)
+    assert result["spent"] == 110.0  # April's 50.0 must not be included
+
+
+@patch("budgetcli.reports.date")
+def test_check_budget_decimal_amount(mock_date) -> None:
+    mock_date.today.return_value = date(2026, 5, 26)
+    mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+    transactions = [_t(10.10, "food", 2026, 5)]
+    result = check_budget("food", 50.0, transactions)
+    assert result["spent"] == 10.10
+    assert result["remaining"] == 39.90
+    assert result["over_budget"] is False

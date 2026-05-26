@@ -1,3 +1,5 @@
+from datetime import date
+
 from budgetcli.models import Transaction
 
 
@@ -27,3 +29,18 @@ def overall_balance(transactions: list[Transaction]) -> float:
     income = sum(t.amount for t in transactions if t.is_income)
     expenses = sum(t.amount for t in transactions if not t.is_income)
     return income - expenses
+
+
+def check_budget(
+    category: str, limit: float, transactions: list[Transaction]
+) -> dict[str, float | bool]:
+    today = date.today()
+    spent = sum(
+        t.amount
+        for t in transactions
+        if t.date.year == today.year
+        and t.date.month == today.month
+        and t.category == category
+        and not t.is_income
+    )
+    return {"spent": spent, "remaining": limit - spent, "over_budget": spent > limit}

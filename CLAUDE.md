@@ -8,7 +8,7 @@ locally — not a web app, no database, single user only.
 budgetcli/models.py   — Transaction dataclass and VALID_CATEGORIES list
 budgetcli/storage.py  — read/write transactions to data/ledger.json
 budgetcli/reports.py  — monthly summaries and category calculations
-budgetcli/cli.py      — argparse entrypoint, handles all 5 commands
+budgetcli/cli.py      — argparse entrypoint, handles all 6 commands
 tests/                — mirrors src structure, one file per module
 data/                 — gitignored, contains ledger.json at runtime
 

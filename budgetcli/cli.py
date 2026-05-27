@@ -1,6 +1,7 @@
 import argparse
 import sys
 from datetime import date
+from importlib.metadata import version
 from pathlib import Path
 
 from budgetcli.models import VALID_CATEGORIES, Transaction
@@ -87,6 +88,7 @@ def cmd_export(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="budget", description="Personal budget tracker")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {version('budgetcli')}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     add_parser = subparsers.add_parser("add", help="Add a transaction")

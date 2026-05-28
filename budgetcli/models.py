@@ -17,8 +17,8 @@ class Transaction:
     note: str = field(default="")
 
     def __post_init__(self) -> None:
-        if self.amount == 0:
-            raise ValueError("amount must not be zero")
+        if self.amount <= 0:
+            raise ValueError("amount must be greater than zero")
         if self.category not in VALID_CATEGORIES:
             raise ValueError(f"category must be one of {VALID_CATEGORIES}")
         if isinstance(self.date, str):

@@ -32,6 +32,11 @@ def test_zero_amount_raises() -> None:
         Transaction(amount=0.0, category="food", date=date(2026, 5, 1))
 
 
+def test_negative_amount_raises() -> None:
+    with pytest.raises(ValueError, match="amount"):
+        Transaction(amount=-10.0, category="food", date=date(2026, 5, 1))
+
+
 def test_date_string_converted() -> None:
     t = Transaction(amount=25.0, category="food", date="2026-05-01")  # type: ignore[arg-type]
     assert t.date == date(2026, 5, 1)

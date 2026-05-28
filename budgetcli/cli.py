@@ -4,14 +4,23 @@ from datetime import date
 from importlib.metadata import version
 from pathlib import Path
 
-from budgetcli.models import VALID_CATEGORIES, Transaction
-from budgetcli.reports import category_breakdown, monthly_summary, overall_balance
-from budgetcli.storage import add_transaction, clear_all, export_csv, load_transactions
+from budgetcli.models import VALID_CATEGORIES, BudgetLimit, Transaction
+from budgetcli.reports import category_breakdown, check_limits, monthly_summary, overall_balance
+from budgetcli.storage import (
+    add_transaction,
+    clear_all,
+    export_csv,
+    load_limits,
+    load_transactions,
+    remove_limit,
+    set_limit,
+)
 
 LIST_LIMIT = 20
 
 
 def cmd_add(args: argparse.Namespace) -> None:
+    # TODO: support temporary limit suspension per category
     try:
         t = Transaction(
             amount=args.amount,
@@ -24,6 +33,13 @@ def cmd_add(args: argparse.Namespace) -> None:
     except ValueError as e:
         print(f"Error: {e}")
         sys.exit(1)
+
+    limits = load_limits()
+    if args.category in limits:
+        today = date.today()
+        totals = category_breakdown(load_transactions(), today.year, today.month)
+        for warning in check_limits(totals, {args.category: limits[args.category]}):
+            print(warning, file=sys.stderr)
 
 
 def cmd_summary(args: argparse.Namespace) -> None:
@@ -75,6 +91,40 @@ def cmd_clear(args: argparse.Namespace, confirm: str | None = None) -> None:
         print("Cancelled.")
 
 
+def cmd_set_limit(args: argparse.Namespace) -> None:
+    try:
+        BudgetLimit(category=args.category, amount=args.amount)
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    set_limit(args.category, args.amount)
+    print(f"Limit set: {args.category} ${args.amount:.2f}/month")
+
+
+def cmd_limits(args: argparse.Namespace) -> None:
+    # TODO: improve formatting (alignment, color) once a formatting helper exists
+    today = date.today()
+    limits = load_limits()
+    if not limits:
+        print("No limits set. Use 'budget set-limit <category> <amount>' to add one.")
+        return
+    transactions = load_transactions()
+    totals = category_breakdown(transactions, today.year, today.month)
+    print(f"Budget limits — {today.strftime('%B %Y')}")
+    print("-" * 44)
+    for category, limit in sorted(limits.items()):
+        spent = totals.get(category, 0.0)
+        pct = spent / limit * 100
+        if spent > limit:
+            status = "OVER"
+        elif spent >= limit * 0.80:
+            status = "NEAR"
+        else:
+            status = "ok"
+        print(f"  {category:<16} ${spent:>7.2f} / ${limit:<9.2f} {status}")
+    print("-" * 44)
+
+
 def cmd_export(args: argparse.Namespace) -> None:
     """Export all transactions to transactions.csv in the current directory.
 
@@ -104,6 +154,12 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("clear", help="Delete all transactions")
     subparsers.add_parser("export", help="Export all transactions to transactions.csv")
 
+    set_limit_parser = subparsers.add_parser("set-limit", help="Set a monthly spending limit for a category")
+    set_limit_parser.add_argument("category", choices=VALID_CATEGORIES, help="Category to limit")
+    set_limit_parser.add_argument("amount", type=float, help="Monthly spending limit")
+
+    subparsers.add_parser("limits", help="Show all budget limits and current month spend")
+
     return parser
 
 
@@ -117,6 +173,8 @@ def main() -> None:
         "list": cmd_list,
         "clear": cmd_clear,
         "export": cmd_export,
+        "set-limit": cmd_set_limit,
+        "limits": cmd_limits,
     }
     commands[args.command](args)
 

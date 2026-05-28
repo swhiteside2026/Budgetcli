@@ -44,3 +44,15 @@ class Transaction:
             date=data["date"],
             note=data.get("note", ""),
         )
+
+
+@dataclass
+class BudgetLimit:
+    category: str
+    amount: float
+
+    def __post_init__(self) -> None:
+        if self.category not in VALID_CATEGORIES:
+            raise ValueError(f"category must be one of {VALID_CATEGORIES}")
+        if self.amount <= 0:
+            raise ValueError("amount must be greater than zero")

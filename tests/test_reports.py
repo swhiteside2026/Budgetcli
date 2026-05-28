@@ -2,7 +2,7 @@ from datetime import date
 from unittest.mock import patch
 
 from budgetcli.models import Transaction
-from budgetcli.reports import category_breakdown, check_budget, monthly_summary, overall_balance
+from budgetcli.reports import category_breakdown, check_budget, check_limits, monthly_summary, overall_balance
 
 
 def _t(amount: float, category: str, year: int, month: int, day: int = 1) -> Transaction:
@@ -145,3 +145,68 @@ def test_check_budget_decimal_amount(mock_date) -> None:
     assert result["spent"] == 10.10
     assert result["remaining"] == 39.90
     assert result["over_budget"] is False
+
+
+# --- check_limits tests ---
+
+def test_check_limits_no_limits() -> None:
+    assert check_limits({"food": 50.0}, {}) == []
+
+
+def test_check_limits_under_threshold() -> None:
+    # 50 / 300 = 16% — well under 80%
+    warnings = check_limits({"food": 50.0}, {"food": 300.0})
+    assert warnings == []
+
+
+def test_check_limits_just_below_threshold() -> None:
+    # 79 / 100 = 79% — just under threshold
+    warnings = check_limits({"food": 79.0}, {"food": 100.0})
+    assert warnings == []
+
+
+def test_check_limits_at_threshold() -> None:
+    # 80 / 100 = exactly 80% — should warn near
+    warnings = check_limits({"food": 80.0}, {"food": 100.0})
+    assert len(warnings) == 1
+    assert "near" in warnings[0].lower()
+    assert "food" in warnings[0]
+
+
+def test_check_limits_above_threshold_below_limit() -> None:
+    # 90 / 100 = 90% — near warning
+    warnings = check_limits({"food": 90.0}, {"food": 100.0})
+    assert len(warnings) == 1
+    assert "near" in warnings[0].lower()
+
+
+def test_check_limits_at_limit() -> None:
+    # 100 / 100 = exactly at limit — near warning (over requires strictly greater)
+    warnings = check_limits({"food": 100.0}, {"food": 100.0})
+    assert len(warnings) == 1
+    assert "near" in warnings[0].lower()
+
+
+def test_check_limits_over_limit() -> None:
+    # 110 / 100 = 110% — over warning
+    warnings = check_limits({"food": 110.0}, {"food": 100.0})
+    assert len(warnings) == 1
+    assert "over" in warnings[0].lower()
+    assert "food" in warnings[0]
+
+
+def test_check_limits_no_spending_in_category() -> None:
+    # category has a limit but nothing spent — no warning
+    warnings = check_limits({}, {"food": 100.0})
+    assert warnings == []
+
+
+def test_check_limits_multiple_categories() -> None:
+    totals = {"food": 95.0, "transport": 20.0, "health": 110.0}
+    limits = {"food": 100.0, "transport": 200.0, "health": 100.0}
+    warnings = check_limits(totals, limits)
+    categories_warned = [w for w in warnings if "food" in w or "health" in w]
+    assert len(warnings) == 2
+    assert not any("transport" in w for w in warnings)
+    assert any("food" in w for w in categories_warned)
+    assert any("health" in w for w in categories_warned)

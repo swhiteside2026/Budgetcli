@@ -31,6 +31,33 @@ def overall_balance(transactions: list[Transaction]) -> float:
     return income - expenses
 
 
+# TODO: make configurable per-limit or globally via a `budget config` command
+WARN_THRESHOLD: float = 0.80
+
+
+def check_limits(
+    category_totals: dict[str, float], limits: dict[str, float]
+) -> list[str]:
+    """Return warning strings for categories at or near their monthly limit.
+
+    Limits always apply to the full calendar month-to-date. Two warning levels:
+    - near: spent >= WARN_THRESHOLD of limit (but not over)
+    - over: spent exceeds limit
+    """
+    warnings: list[str] = []
+    for category, limit in limits.items():
+        spent = category_totals.get(category, 0.0)
+        if spent > limit:
+            warnings.append(
+                f"Warning: {category} is over budget (${spent:.2f} spent, ${limit:.2f} limit)"
+            )
+        elif spent >= limit * WARN_THRESHOLD:
+            warnings.append(
+                f"Warning: {category} is near its limit (${spent:.2f} of ${limit:.2f} spent)"
+            )
+    return warnings
+
+
 def check_budget(
     category: str, limit: float, transactions: list[Transaction]
 ) -> dict[str, float | bool]:

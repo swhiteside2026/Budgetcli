@@ -1,5 +1,6 @@
 import argparse
 import csv
+import subprocess
 from datetime import date
 from pathlib import Path
 
@@ -59,3 +60,13 @@ def test_export_prints_output_path(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     output = capsys.readouterr().out
     expected = str((tmp_path / "transactions.csv").resolve())
     assert expected in output
+
+
+def test_version_flag() -> None:
+    result = subprocess.run(
+        ["python", "-m", "budgetcli.cli", "--version"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "budget 0.1.0" in result.stdout + result.stderr

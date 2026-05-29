@@ -22,9 +22,9 @@ def _read_ledger() -> tuple[list[dict], dict[str, float]]:
     return raw.get("transactions", []), raw.get("limits", {})
 
 
-def _write_ledger(transactions: list[Transaction], limits: dict[str, float]) -> None:
+def _write_ledger(transactions: list[dict], limits: dict[str, float]) -> None:
     DATA_FILE.write_text(
-        json.dumps({"transactions": [t.to_dict() for t in transactions], "limits": limits}, indent=2),
+        json.dumps({"transactions": transactions, "limits": limits}, indent=2),
         encoding="utf-8",
     )
 
@@ -41,23 +41,20 @@ def load_limits() -> dict[str, float]:
 
 def set_limit(category: str, amount: float) -> None:
     raw_transactions, limits = _read_ledger()
-    transactions = [Transaction.from_dict(item) for item in raw_transactions]
     limits[category] = amount
-    _write_ledger(transactions, limits)
+    _write_ledger(raw_transactions, limits)
 
 
 def remove_limit(category: str) -> None:
     raw_transactions, limits = _read_ledger()
-    transactions = [Transaction.from_dict(item) for item in raw_transactions]
     limits.pop(category, None)
-    _write_ledger(transactions, limits)
+    _write_ledger(raw_transactions, limits)
 
 
 def add_transaction(transaction: Transaction) -> None:
     raw_transactions, limits = _read_ledger()
-    transactions = [Transaction.from_dict(item) for item in raw_transactions]
-    transactions.append(transaction)
-    _write_ledger(transactions, limits)
+    raw_transactions.append(transaction.to_dict())
+    _write_ledger(raw_transactions, limits)
 
 
 def clear_all() -> None:

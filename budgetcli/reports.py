@@ -6,6 +6,12 @@ from budgetcli.models import Transaction
 def monthly_summary(
     transactions: list[Transaction], year: int, month: int
 ) -> tuple[float, float, float]:
+    """Summarise income, expenses, and net balance for a given month.
+
+    Returns (income, expenses, net) where net = income - expenses.
+    A positive net means the user saved money; negative means they overspent.
+    Only transactions whose date falls within the given year and month are included.
+    """
     filtered = [t for t in transactions if t.date.year == year and t.date.month == month]
     income = sum(t.amount for t in filtered if t.is_income)
     expenses = sum(t.amount for t in filtered if not t.is_income)
@@ -61,6 +67,16 @@ def check_limits(
 def check_budget(
     category: str, limit: float, transactions: list[Transaction]
 ) -> dict[str, float | bool]:
+    """Check current-month spending for a single category against a limit.
+
+    Returns a dict with three keys:
+      'spent'       — total amount spent in this category this calendar month
+      'remaining'   — limit minus spent (negative when over budget)
+      'over_budget' — True if spent exceeds limit
+
+    Unlike check_limits(), this reads today's date internally and returns raw
+    numbers rather than formatted warning strings.
+    """
     today = date.today()
     spent = sum(
         t.amount

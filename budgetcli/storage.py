@@ -14,6 +14,13 @@ def _ensure_data_file() -> None:
 
 
 def _read_ledger() -> tuple[list[dict], dict[str, float]]:
+    """Read the full ledger and return (transactions, limits).
+
+    transactions is a list of raw dicts not yet deserialised to Transaction objects.
+    limits maps each category name to its monthly spending limit amount.
+    Transparently migrates the old bare-array format (pre-budget-limits) to the
+    current {"transactions": [...], "limits": {...}} structure.
+    """
     _ensure_data_file()
     raw = json.loads(DATA_FILE.read_text(encoding="utf-8"))
     # migrate old bare-array format

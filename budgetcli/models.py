@@ -17,8 +17,8 @@ class Transaction:
     note: str = field(default="")
 
     def __post_init__(self) -> None:
-        if self.amount == 0:
-            raise ValueError("amount must not be zero")
+        if self.amount <= 0:
+            raise ValueError("amount must be greater than zero")
         if self.category not in VALID_CATEGORIES:
             raise ValueError(f"category must be one of {VALID_CATEGORIES}")
         if isinstance(self.date, str):
@@ -44,3 +44,17 @@ class Transaction:
             date=data["date"],
             note=data.get("note", ""),
         )
+
+
+@dataclass
+class BudgetLimit:
+    category: str
+    amount: float
+
+    def __post_init__(self) -> None:
+        if self.category not in VALID_CATEGORIES:
+            raise ValueError(f"category must be one of {VALID_CATEGORIES}")
+        if self.category == "income":
+            raise ValueError("budget limits cannot be set on the income category")
+        if self.amount <= 0:
+            raise ValueError("amount must be greater than zero")

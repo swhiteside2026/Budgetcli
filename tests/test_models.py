@@ -1,7 +1,7 @@
 import pytest
 from datetime import date
 
-from budgetcli.models import Transaction, VALID_CATEGORIES
+from budgetcli.models import BudgetLimit, Transaction, VALID_CATEGORIES
 
 
 def test_valid_transaction_creation() -> None:
@@ -32,6 +32,11 @@ def test_zero_amount_raises() -> None:
         Transaction(amount=0.0, category="food", date=date(2026, 5, 1))
 
 
+def test_negative_amount_raises() -> None:
+    with pytest.raises(ValueError, match="amount"):
+        Transaction(amount=-10.0, category="food", date=date(2026, 5, 1))
+
+
 def test_date_string_converted() -> None:
     t = Transaction(amount=25.0, category="food", date="2026-05-01")  # type: ignore[arg-type]
     assert t.date == date(2026, 5, 1)
@@ -54,3 +59,31 @@ def test_to_dict_date_is_string() -> None:
     d = t.to_dict()
     assert isinstance(d["date"], str)
     assert d["date"] == "2026-05-01"
+
+
+# --- BudgetLimit tests ---
+
+def test_budget_limit_valid() -> None:
+    bl = BudgetLimit(category="food", amount=200.0)
+    assert bl.category == "food"
+    assert bl.amount == 200.0
+
+
+def test_budget_limit_invalid_category_raises() -> None:
+    with pytest.raises(ValueError, match="category"):
+        BudgetLimit(category="nonsense", amount=100.0)
+
+
+def test_budget_limit_zero_amount_raises() -> None:
+    with pytest.raises(ValueError, match="amount"):
+        BudgetLimit(category="food", amount=0.0)
+
+
+def test_budget_limit_negative_amount_raises() -> None:
+    with pytest.raises(ValueError, match="amount"):
+        BudgetLimit(category="food", amount=-50.0)
+
+
+def test_budget_limit_income_category_raises() -> None:
+    with pytest.raises(ValueError, match="income"):
+        BudgetLimit(category="income", amount=5000.0)

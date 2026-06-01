@@ -6,6 +6,7 @@ from pathlib import Path
 
 import budgetcli.storage as storage
 from budgetcli.models import Transaction
+from budgetcli.storage import load_limits, remove_limit, set_limit
 
 
 @pytest.fixture(autouse=True)
@@ -120,3 +121,72 @@ def test_export_csv_second_export_overwrites_first(tmp_path: Path) -> None:
     with open(out, newline="", encoding="utf-8") as f:
         rows = list(csv.reader(f))
     assert len(rows) == 3  # header + 2 transactions, not 4 (header + 1 + header + 2)
+
+
+# --- limit storage tests ---
+
+def test_load_limits_empty_by_default() -> None:
+    assert storage.load_limits() == {}
+
+
+def test_set_and_load_limit() -> None:
+    set_limit("food", 300.0)
+    assert storage.load_limits() == {"food": 300.0}
+
+
+def test_set_limit_overwrites_existing() -> None:
+    set_limit("food", 300.0)
+    set_limit("food", 500.0)
+    assert storage.load_limits()["food"] == 500.0
+
+
+def test_set_multiple_limits() -> None:
+    set_limit("food", 300.0)
+    set_limit("transport", 100.0)
+    limits = storage.load_limits()
+    assert limits["food"] == 300.0
+    assert limits["transport"] == 100.0
+
+
+def test_remove_limit() -> None:
+    set_limit("food", 300.0)
+    remove_limit("food")
+    assert "food" not in storage.load_limits()
+
+
+def test_remove_limit_noop_if_missing() -> None:
+    remove_limit("food")  # should not raise
+    assert storage.load_limits() == {}
+
+
+def test_clear_all_preserves_limits() -> None:
+    set_limit("food", 300.0)
+    storage.add_transaction(_make_transaction())
+    storage.clear_all()
+    assert storage.load_transactions() == []
+    assert storage.load_limits() == {"food": 300.0}
+
+
+def test_set_limit_preserves_transactions() -> None:
+    storage.add_transaction(_make_transaction())
+    set_limit("food", 300.0)
+    assert len(storage.load_transactions()) == 1
+
+
+def test_load_transactions_from_bare_array_format(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+    fake_file = tmp_path / "legacy.json"
+    t = _make_transaction()
+    fake_file.write_text(json.dumps([t.to_dict()]), encoding="utf-8")
+    monkeypatch.setattr(storage, "DATA_FILE", fake_file)
+    loaded = storage.load_transactions()
+    assert len(loaded) == 1
+    assert loaded[0].category == "food"
+
+
+def test_load_limits_from_bare_array_format(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+    fake_file = tmp_path / "legacy.json"
+    fake_file.write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setattr(storage, "DATA_FILE", fake_file)
+    assert storage.load_limits() == {}

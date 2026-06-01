@@ -82,3 +82,8 @@ def test_budget_limit_zero_amount_raises() -> None:
 def test_budget_limit_negative_amount_raises() -> None:
     with pytest.raises(ValueError, match="amount"):
         BudgetLimit(category="food", amount=-50.0)
+
+
+def test_budget_limit_income_category_raises() -> None:
+    with pytest.raises(ValueError, match="income"):
+        BudgetLimit(category="income", amount=5000.0)

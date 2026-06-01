@@ -54,5 +54,7 @@ class BudgetLimit:
     def __post_init__(self) -> None:
         if self.category not in VALID_CATEGORIES:
             raise ValueError(f"category must be one of {VALID_CATEGORIES}")
+        if self.category == "income":
+            raise ValueError("budget limits cannot be set on the income category")
         if self.amount <= 0:
             raise ValueError("amount must be greater than zero")

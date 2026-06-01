@@ -5,14 +5,13 @@ from importlib.metadata import version
 from pathlib import Path
 
 from budgetcli.models import VALID_CATEGORIES, BudgetLimit, Transaction
-from budgetcli.reports import category_breakdown, check_limits, monthly_summary, overall_balance
+from budgetcli.reports import WARN_THRESHOLD, category_breakdown, check_limits, monthly_summary, overall_balance
 from budgetcli.storage import (
     add_transaction,
     clear_all,
     export_csv,
     load_limits,
     load_transactions,
-    remove_limit,
     set_limit,
 )
 
@@ -114,10 +113,9 @@ def cmd_limits(args: argparse.Namespace) -> None:
     print("-" * 44)
     for category, limit in sorted(limits.items()):
         spent = totals.get(category, 0.0)
-        pct = spent / limit * 100
         if spent > limit:
             status = "OVER"
-        elif spent >= limit * 0.80:
+        elif spent >= limit * WARN_THRESHOLD:
             status = "NEAR"
         else:
             status = "ok"

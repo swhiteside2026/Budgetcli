@@ -63,6 +63,68 @@ def test_export_prints_output_path(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert expected in output
 
 
+# --- export --from / --to tests ---
+
+def test_export_from_filters_earlier_transactions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    storage.add_transaction(Transaction(amount=10.0, category="food", date=date(2026, 4, 30)))
+    storage.add_transaction(Transaction(amount=20.0, category="food", date=date(2026, 5, 1)))
+    cmd_export(argparse.Namespace(from_date="2026-05-01", to_date=None))
+    with open(tmp_path / "transactions.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    assert len(rows) == 2  # header + 1 row
+    assert rows[1][0] == "2026-05-01"
+
+
+def test_export_to_filters_later_transactions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    storage.add_transaction(Transaction(amount=10.0, category="food", date=date(2026, 5, 31)))
+    storage.add_transaction(Transaction(amount=20.0, category="food", date=date(2026, 6, 1)))
+    cmd_export(argparse.Namespace(from_date=None, to_date="2026-05-31"))
+    with open(tmp_path / "transactions.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    assert len(rows) == 2
+    assert rows[1][0] == "2026-05-31"
+
+
+def test_export_from_and_to_together(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    storage.add_transaction(Transaction(amount=5.0, category="food", date=date(2026, 4, 30)))
+    storage.add_transaction(Transaction(amount=10.0, category="food", date=date(2026, 5, 15)))
+    storage.add_transaction(Transaction(amount=15.0, category="food", date=date(2026, 6, 1)))
+    cmd_export(argparse.Namespace(from_date="2026-05-01", to_date="2026-05-31"))
+    with open(tmp_path / "transactions.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    assert len(rows) == 2
+    assert rows[1][0] == "2026-05-15"
+
+
+def test_export_date_bounds_are_inclusive(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    storage.add_transaction(Transaction(amount=10.0, category="food", date=date(2026, 5, 1)))
+    storage.add_transaction(Transaction(amount=20.0, category="food", date=date(2026, 5, 31)))
+    cmd_export(argparse.Namespace(from_date="2026-05-01", to_date="2026-05-31"))
+    with open(tmp_path / "transactions.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.reader(f))
+    assert len(rows) == 3  # header + 2 rows
+
+
+def test_export_invalid_from_exits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        cmd_export(argparse.Namespace(from_date="05-2026-01", to_date=None))
+    assert exc.value.code == 1
+    assert "YYYY-MM-DD" in capsys.readouterr().out
+
+
+def test_export_invalid_to_exits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        cmd_export(argparse.Namespace(from_date=None, to_date="not-a-date"))
+    assert exc.value.code == 1
+    assert "YYYY-MM-DD" in capsys.readouterr().out
+
+
 def test_version_flag() -> None:
     result = subprocess.run(
         ["python", "-m", "budgetcli.cli", "--version"],

@@ -1,5 +1,6 @@
 import csv
 import json
+from datetime import date
 from pathlib import Path
 
 from budgetcli.models import Transaction
@@ -80,13 +81,22 @@ def update_transaction(index: int, transaction: Transaction) -> None:
     _write_ledger(raw_transactions, limits)
 
 
-def export_csv(path: Path) -> None:
-    """Export all transactions to a CSV file at the given path.
+def export_csv(
+    path: Path,
+    from_date: date | None = None,
+    to_date: date | None = None,
+) -> None:
+    """Export transactions to a CSV file at the given path.
 
     Writes a header row (date, category, amount, note) followed by one row
     per transaction. Overwrites the file if it already exists.
+    from_date and to_date are inclusive bounds; omit either to leave that end open.
     """
     transactions = load_transactions()
+    if from_date is not None:
+        transactions = [t for t in transactions if t.date >= from_date]
+    if to_date is not None:
+        transactions = [t for t in transactions if t.date <= to_date]
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["date", "category", "amount", "note"])

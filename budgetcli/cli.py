@@ -216,13 +216,28 @@ def cmd_limits(args: argparse.Namespace) -> None:
 
 
 def cmd_export(args: argparse.Namespace) -> None:
-    """Export all transactions to transactions.csv in the current directory.
+    from_date = None
+    to_date = None
 
-    Loads all transactions, writes them to CSV, and prints the absolute path
-    of the saved file so the user knows where to find it.
-    """
+    raw_from = getattr(args, "from_date", None)
+    raw_to = getattr(args, "to_date", None)
+
+    if raw_from:
+        try:
+            from_date = date.fromisoformat(raw_from)
+        except ValueError:
+            print("Error: --from must be in YYYY-MM-DD format (e.g. 2026-05-01)")
+            sys.exit(1)
+
+    if raw_to:
+        try:
+            to_date = date.fromisoformat(raw_to)
+        except ValueError:
+            print("Error: --to must be in YYYY-MM-DD format (e.g. 2026-05-31)")
+            sys.exit(1)
+
     path = Path("transactions.csv").resolve()
-    export_csv(path)
+    export_csv(path, from_date=from_date, to_date=to_date)
     print(f"Exported to {path}")
 
 
@@ -245,7 +260,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("clear", help="Delete all transactions")
     subparsers.add_parser("delete", help="Delete a single transaction")
     subparsers.add_parser("edit", help="Edit an existing transaction")
-    subparsers.add_parser("export", help="Export all transactions to transactions.csv")
+    export_parser = subparsers.add_parser("export", help="Export all transactions to transactions.csv")
+    export_parser.add_argument("--from", dest="from_date", type=str, default=None, metavar="YYYY-MM-DD", help="Export transactions from this date (inclusive)")
+    export_parser.add_argument("--to", dest="to_date", type=str, default=None, metavar="YYYY-MM-DD", help="Export transactions up to this date (inclusive)")
 
     set_limit_parser = subparsers.add_parser("set-limit", help="Set a monthly spending limit for a category")
     set_limit_parser.add_argument("category", choices=VALID_CATEGORIES, help="Category to limit")

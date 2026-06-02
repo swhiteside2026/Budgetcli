@@ -48,10 +48,16 @@ def cmd_summary(args: argparse.Namespace) -> None:
     today = date.today()
     transactions = load_transactions()
     income, expenses, net = monthly_summary(transactions, today.year, today.month)
+    breakdown = category_breakdown(transactions, today.year, today.month)
     print(f"{'Month:':<12} {today.strftime('%B %Y')}")
-    print(f"{'Income:':<12} ${income:>10.2f}")
-    print(f"{'Expenses:':<12} ${expenses:>10.2f}")
-    print(f"{'Net:':<12} ${net:>10.2f}")
+    print(f"{'Income:':<12} +${income:>9.2f}")
+    print(f"{'Expenses:':<12} -${expenses:>9.2f}")
+    print(f"{'Net:':<12}  ${net:>9.2f}")
+    if breakdown:
+        top_cat, top_amt = next(iter(breakdown.items()))
+        print(f"{'Top spend:':<12}  {top_cat} ${top_amt:.2f}")
+    else:
+        print(f"{'Top spend:':<12}  none")
 
 
 def cmd_report(args: argparse.Namespace) -> None:

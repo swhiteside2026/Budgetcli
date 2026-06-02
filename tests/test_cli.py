@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 import budgetcli.storage as storage
-from budgetcli.cli import cmd_add, cmd_edit, cmd_export, cmd_limits, cmd_set_limit
+from budgetcli.cli import cmd_add, cmd_edit, cmd_export, cmd_limits, cmd_set_limit, cmd_summary
 from budgetcli.models import Transaction
 from unittest.mock import patch
 
@@ -262,3 +262,47 @@ def test_edit_invalid_category_prints_error(capsys: pytest.CaptureFixture) -> No
         cmd_edit(_args())
     assert "Error" in capsys.readouterr().out
     assert storage.load_transactions()[0].category == "food"
+
+
+# --- cmd_summary tests ---
+
+def test_summary_income_has_plus_sign(capsys: pytest.CaptureFixture) -> None:
+    storage.add_transaction(Transaction(amount=1000.0, category="income", date=date(2026, 5, 1)))
+    with patch("budgetcli.cli.date") as mock_date:
+        mock_date.today.return_value = date(2026, 5, 1)
+        cmd_summary(_args())
+    assert "+$" in capsys.readouterr().out
+
+
+def test_summary_expenses_has_minus_sign(capsys: pytest.CaptureFixture) -> None:
+    storage.add_transaction(Transaction(amount=50.0, category="food", date=date(2026, 5, 1)))
+    with patch("budgetcli.cli.date") as mock_date:
+        mock_date.today.return_value = date(2026, 5, 1)
+        cmd_summary(_args())
+    assert "-$" in capsys.readouterr().out
+
+
+def test_summary_top_spend_shows_highest_category(capsys: pytest.CaptureFixture) -> None:
+    storage.add_transaction(Transaction(amount=200.0, category="rent", date=date(2026, 5, 1)))
+    storage.add_transaction(Transaction(amount=50.0, category="food", date=date(2026, 5, 1)))
+    with patch("budgetcli.cli.date") as mock_date:
+        mock_date.today.return_value = date(2026, 5, 1)
+        cmd_summary(_args())
+    assert "rent" in capsys.readouterr().out
+
+
+def test_summary_top_spend_none_when_no_expenses(capsys: pytest.CaptureFixture) -> None:
+    storage.add_transaction(Transaction(amount=1000.0, category="income", date=date(2026, 5, 1)))
+    with patch("budgetcli.cli.date") as mock_date:
+        mock_date.today.return_value = date(2026, 5, 1)
+        cmd_summary(_args())
+    assert "none" in capsys.readouterr().out
+
+
+def test_summary_net_line_present(capsys: pytest.CaptureFixture) -> None:
+    storage.add_transaction(Transaction(amount=1000.0, category="income", date=date(2026, 5, 1)))
+    storage.add_transaction(Transaction(amount=200.0, category="food", date=date(2026, 5, 1)))
+    with patch("budgetcli.cli.date") as mock_date:
+        mock_date.today.return_value = date(2026, 5, 1)
+        cmd_summary(_args())
+    assert "Net" in capsys.readouterr().out

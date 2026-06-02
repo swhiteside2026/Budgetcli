@@ -4,9 +4,16 @@ from datetime import date
 from importlib.metadata import version
 from pathlib import Path
 
+from rich import box
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
+
 from .storage import _write_ledger
 from budgetcli.models import VALID_CATEGORIES, BudgetLimit, Transaction
 from budgetcli.reports import WARN_THRESHOLD, category_breakdown, check_limits, monthly_summary, overall_balance
+
+console = Console(highlight=False)
 from budgetcli.storage import (
     add_transaction,
     clear_all,
@@ -40,8 +47,10 @@ def cmd_add(args: argparse.Namespace) -> None:
     if args.category in limits:
         today = date.today()
         totals = category_breakdown(load_transactions(), today.year, today.month)
+        err_console = Console(file=sys.stderr, highlight=False)
         for warning in check_limits(totals, {args.category: limits[args.category]}):
-            print(warning, file=sys.stderr)
+            style = "bold red" if "over" in warning.lower() else "bold yellow"
+            err_console.print(warning, style=style)
 
 
 def cmd_summary(args: argparse.Namespace) -> None:
@@ -49,15 +58,23 @@ def cmd_summary(args: argparse.Namespace) -> None:
     transactions = load_transactions()
     income, expenses, net = monthly_summary(transactions, today.year, today.month)
     breakdown = category_breakdown(transactions, today.year, today.month)
-    print(f"{'Month:':<12} {today.strftime('%B %Y')}")
-    print(f"{'Income:':<12} +${income:>9.2f}")
-    print(f"{'Expenses:':<12} -${expenses:>9.2f}")
-    print(f"{'Net:':<12}  ${net:>9.2f}")
+
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column(style="bold", min_width=12)
+    table.add_column(justify="right", min_width=12)
+
+    table.add_row("Month", today.strftime("%B %Y"))
+    table.add_row("Income", Text(f"+${income:.2f}", style="green"))
+    table.add_row("Expenses", f"-${expenses:.2f}")
+    net_sign = "+" if net >= 0 else "-"
+    table.add_row("Net", Text(f"{net_sign}${abs(net):.2f}", style="green" if net >= 0 else "red"))
     if breakdown:
         top_cat, top_amt = next(iter(breakdown.items()))
-        print(f"{'Top spend:':<12}  {top_cat} ${top_amt:.2f}")
+        table.add_row("Top spend", f"{top_cat} ${top_amt:.2f}")
     else:
-        print(f"{'Top spend:':<12}  none")
+        table.add_row("Top spend", "none")
+
+    console.print(table)
 
 
 def cmd_report(args: argparse.Namespace) -> None:
@@ -66,15 +83,18 @@ def cmd_report(args: argparse.Namespace) -> None:
     breakdown = category_breakdown(transactions, today.year, today.month)
     balance = overall_balance(transactions)
 
-    print(f"Spending by category — {today.strftime('%B %Y')}")
-    print("-" * 30)
+    console.print(f"Spending by category — {today.strftime('%B %Y')}", style="bold")
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column(min_width=18)
+    table.add_column(justify="right")
     if breakdown:
         for category, total in breakdown.items():
-            print(f"  {category:<16} ${total:>8.2f}")
+            table.add_row(category, f"${total:.2f}")
     else:
-        print("  No expenses this month.")
-    print("-" * 30)
-    print(f"  {'Overall balance':<16} ${balance:>8.2f}")
+        table.add_row("No expenses this month.", "")
+    table.add_section()
+    table.add_row("Overall balance", Text(f"${balance:.2f}", style="green" if balance >= 0 else "red"), style="bold")
+    console.print(table)
 
 
 def cmd_list(args: argparse.Namespace) -> None:
@@ -92,12 +112,16 @@ def cmd_list(args: argparse.Namespace) -> None:
         to_show = transactions[-LIST_LIMIT:]
 
     if not to_show:
-        print("No transactions found.")
+        console.print("No transactions found.")
         return
     for t in to_show:
         sign = "+" if t.is_income else "-"
         note_str = f"  {t.note}" if t.note else ""
-        print(f"{t.date}  {sign}${t.amount:<10.2f}  {t.category:<16}{note_str}")
+        line = Text()
+        line.append(f"{t.date}  ")
+        line.append(f"{sign}${t.amount:<10.2f}", style="green" if t.is_income else "")
+        line.append(f"  {t.category:<16}{note_str}")
+        console.print(line)
 
 
 def cmd_clear(args: argparse.Namespace, confirm: str | None = None) -> None:
@@ -260,26 +284,32 @@ def cmd_set_limit(args: argparse.Namespace) -> None:
 
 
 def cmd_limits(args: argparse.Namespace) -> None:
-    # TODO: improve formatting (alignment, color) once a formatting helper exists
     today = date.today()
     limits = load_limits()
     if not limits:
-        print("No limits set. Use 'budget set-limit <category> <amount>' to add one.")
+        console.print("No limits set. Use 'budget set-limit <category> <amount>' to add one.")
         return
     transactions = load_transactions()
     totals = category_breakdown(transactions, today.year, today.month)
-    print(f"Budget limits — {today.strftime('%B %Y')}")
-    print("-" * 44)
+
+    console.print(f"Budget limits — {today.strftime('%B %Y')}", style="bold")
+    table = Table(box=box.SIMPLE_HEAD)
+    table.add_column("Category")
+    table.add_column("Spent", justify="right")
+    table.add_column("Limit", justify="right")
+    table.add_column("Status")
+
     for category, limit in sorted(limits.items()):
         spent = totals.get(category, 0.0)
         if spent > limit:
-            status = "OVER"
+            status = Text("OVER", style="bold red")
         elif spent >= limit * WARN_THRESHOLD:
-            status = "NEAR"
+            status = Text("NEAR", style="bold yellow")
         else:
-            status = "ok"
-        print(f"  {category:<16} ${spent:>7.2f} / ${limit:<9.2f} {status}")
-    print("-" * 44)
+            status = Text("ok", style="green")
+        table.add_row(category, f"${spent:.2f}", f"${limit:.2f}", status)
+
+    console.print(table)
 
 
 def cmd_export(args: argparse.Namespace) -> None:

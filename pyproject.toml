@@ -10,3 +10,6 @@ dependencies = ["rich>=13.0"]
 
 [project.scripts]
 budget = "budgetcli.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["budgetcli*"]

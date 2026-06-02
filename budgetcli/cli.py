@@ -10,17 +10,20 @@ from rich.table import Table
 from rich.text import Text
 
 from .storage import _write_ledger
-from budgetcli.models import VALID_CATEGORIES, BudgetLimit, Transaction
+from budgetcli.models import VALID_CATEGORIES, VALID_FREQUENCIES, BudgetLimit, RecurringTransaction, Transaction
 from budgetcli.reports import WARN_THRESHOLD, category_breakdown, check_limits, monthly_summary, overall_balance
 
 console = Console(highlight=False)
 from budgetcli.storage import (
+    add_recurring,
     add_transaction,
     clear_all,
     delete_transaction,
     export_csv,
     load_limits,
+    load_recurring,
     load_transactions,
+    save_recurring,
     set_limit,
     update_transaction,
 )
@@ -249,6 +252,21 @@ def cmd_help(args: argparse.Namespace) -> None:
             "budget export --from 2026-05-01 --to 2026-05-31",
         ),
         (
+            "recurring add <amount> <category> [--note TEXT] [--frequency monthly]",
+            "Set up a new recurring transaction.",
+            'budget recurring add 1200 rent --note "Monthly rent" --frequency monthly',
+        ),
+        (
+            "recurring list",
+            "Show all recurring transactions and whether each is due this month.",
+            "budget recurring list",
+        ),
+        (
+            "recurring apply",
+            "Add all recurring transactions that are due this month (skips already-applied ones).",
+            "budget recurring apply",
+        ),
+        (
             "set-limit <category> <amount>",
             "Set a monthly spending limit for a category.",
             "budget set-limit food 300",
@@ -271,6 +289,71 @@ def cmd_help(args: argparse.Namespace) -> None:
         print(f"    {description}")
         print(f"    Example: {example}")
         print()
+
+
+def cmd_recurring_add(args: argparse.Namespace) -> None:
+    try:
+        rt = RecurringTransaction(
+            amount=args.amount,
+            category=args.category,
+            frequency=args.frequency,
+            note=args.note or "",
+        )
+        add_recurring(rt)
+        console.print(f"Recurring {rt.frequency} transaction added: {rt.category} ${rt.amount:.2f}")
+    except ValueError as e:
+        console.print(f"Error: {e}")
+        sys.exit(1)
+
+
+def cmd_recurring_list(args: argparse.Namespace) -> None:
+    today = date.today()
+    recurring = load_recurring()
+    if not recurring:
+        console.print("No recurring transactions set up.")
+        return
+    table = Table(box=box.SIMPLE_HEAD)
+    table.add_column("Amount", justify="right")
+    table.add_column("Category")
+    table.add_column("Frequency")
+    table.add_column("Note")
+    table.add_column("This month")
+    for rt in recurring:
+        status = Text("due", style="yellow") if rt.is_due(today) else Text("applied", style="green")
+        table.add_row(
+            Text(f"${rt.amount:.2f}", style="green" if rt.category == "income" else ""),
+            rt.category,
+            rt.frequency,
+            rt.note,
+            status,
+        )
+    console.print(table)
+
+
+def cmd_recurring_apply(args: argparse.Namespace) -> None:
+    today = date.today()
+    recurring = load_recurring()
+    applied = 0
+    for rt in recurring:
+        if rt.is_due(today):
+            add_transaction(Transaction(amount=rt.amount, category=rt.category, date=today, note=rt.note))
+            rt.last_applied = today
+            applied += 1
+            console.print(f"Applied: {rt.category} ${rt.amount:.2f}")
+    save_recurring(recurring)
+    if applied == 0:
+        console.print("No recurring transactions due.")
+    else:
+        console.print(f"{applied} transaction(s) applied.")
+
+
+def cmd_recurring(args: argparse.Namespace) -> None:
+    subcommands = {
+        "add": cmd_recurring_add,
+        "list": cmd_recurring_list,
+        "apply": cmd_recurring_apply,
+    }
+    subcommands[args.recurring_command](args)
 
 
 def cmd_set_limit(args: argparse.Namespace) -> None:
@@ -366,6 +449,21 @@ def build_parser() -> argparse.ArgumentParser:
     set_limit_parser.add_argument("amount", type=float, help="Monthly spending limit")
 
     subparsers.add_parser("limits", help="Show all budget limits and current month spend")
+
+    recurring_parser = subparsers.add_parser("recurring", help="Manage recurring transactions")
+    recurring_sub = recurring_parser.add_subparsers(dest="recurring_command", required=True)
+
+    rec_add_parser = recurring_sub.add_parser("add", help="Set up a new recurring transaction")
+    rec_add_parser.add_argument("amount", type=float, help="Transaction amount")
+    rec_add_parser.add_argument("category", choices=VALID_CATEGORIES, help="Transaction category")
+    rec_add_parser.add_argument("--note", type=str, default="", help="Optional note")
+    rec_add_parser.add_argument(
+        "--frequency", choices=VALID_FREQUENCIES, default="monthly", help="Recurrence frequency"
+    )
+
+    recurring_sub.add_parser("list", help="List all recurring transactions")
+    recurring_sub.add_parser("apply", help="Apply all recurring transactions due this month")
+
     subparsers.add_parser("help", help="Show a summary of every command with examples")
 
     return parser
@@ -385,6 +483,7 @@ def main() -> None:
         "export": cmd_export,
         "set-limit": cmd_set_limit,
         "limits": cmd_limits,
+        "recurring": cmd_recurring,
         "help": cmd_help,
     }
     commands[args.command](args)

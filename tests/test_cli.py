@@ -7,7 +7,11 @@ from pathlib import Path
 import pytest
 
 import budgetcli.storage as storage
-from budgetcli.cli import cmd_add, cmd_edit, cmd_export, cmd_help, cmd_limits, cmd_list, cmd_set_limit, cmd_summary
+from budgetcli.cli import (
+    cmd_add, cmd_edit, cmd_export, cmd_help, cmd_limits, cmd_list,
+    cmd_recurring_add, cmd_recurring_apply, cmd_recurring_list,
+    cmd_set_limit, cmd_summary,
+)
 from budgetcli.models import Transaction
 from unittest.mock import patch
 
@@ -413,7 +417,7 @@ def test_help_prints_header(capsys: pytest.CaptureFixture) -> None:
 def test_help_contains_all_commands(capsys: pytest.CaptureFixture) -> None:
     cmd_help(_args())
     out = capsys.readouterr().out
-    for command in ("add", "summary", "report", "list", "delete", "edit", "clear", "export", "set-limit", "limits", "help"):
+    for command in ("add", "summary", "report", "list", "delete", "edit", "clear", "export", "recurring", "set-limit", "limits", "help"):
         assert command in out
 
 
@@ -428,3 +432,109 @@ def test_help_shows_flags(capsys: pytest.CaptureFixture) -> None:
     assert "--month" in out
     assert "--from" in out
     assert "--to" in out
+
+
+# --- recurring command tests ---
+
+def _recurring_args(**kwargs) -> argparse.Namespace:
+    defaults = {"amount": 100.0, "category": "food", "note": "", "frequency": "monthly"}
+    defaults.update(kwargs)
+    return argparse.Namespace(**defaults)
+
+
+def test_recurring_add_prints_confirmation(capsys: pytest.CaptureFixture) -> None:
+    cmd_recurring_add(_recurring_args(amount=1200.0, category="rent"))
+    out = capsys.readouterr().out
+    assert "rent" in out
+    assert "1200.00" in out
+
+
+def test_recurring_add_persists(capsys: pytest.CaptureFixture) -> None:
+    cmd_recurring_add(_recurring_args(amount=50.0, category="food", note="lunch"))
+    loaded = storage.load_recurring()
+    assert len(loaded) == 1
+    assert loaded[0].amount == 50.0
+    assert loaded[0].note == "lunch"
+
+
+def test_recurring_add_invalid_amount_exits(capsys: pytest.CaptureFixture) -> None:
+    with pytest.raises(SystemExit) as exc:
+        cmd_recurring_add(_recurring_args(amount=-10.0))
+    assert exc.value.code == 1
+
+
+def test_recurring_add_invalid_category_exits(capsys: pytest.CaptureFixture) -> None:
+    with pytest.raises(SystemExit) as exc:
+        cmd_recurring_add(_recurring_args(category="nonsense"))
+    assert exc.value.code == 1
+
+
+def test_recurring_list_empty(capsys: pytest.CaptureFixture) -> None:
+    cmd_recurring_list(_args())
+    assert "No recurring" in capsys.readouterr().out
+
+
+def test_recurring_list_shows_entries(capsys: pytest.CaptureFixture) -> None:
+    cmd_recurring_add(_recurring_args(amount=1200.0, category="rent", note="Rent"))
+    cmd_recurring_list(_args())
+    out = capsys.readouterr().out
+    assert "rent" in out
+    assert "1200.00" in out
+    assert "monthly" in out
+
+
+def test_recurring_list_due_status(capsys: pytest.CaptureFixture) -> None:
+    cmd_recurring_add(_recurring_args())
+    cmd_recurring_list(_args())
+    assert "due" in capsys.readouterr().out
+
+
+def test_recurring_apply_adds_transaction(capsys: pytest.CaptureFixture) -> None:
+    cmd_recurring_add(_recurring_args(amount=50.0, category="food"))
+    with patch("budgetcli.cli.date") as mock_date:
+        mock_date.today.return_value = date(2026, 6, 1)
+        mock_date.fromisoformat = date.fromisoformat
+        cmd_recurring_apply(_args())
+    assert len(storage.load_transactions()) == 1
+    assert storage.load_transactions()[0].amount == 50.0
+
+
+def test_recurring_apply_updates_last_applied(capsys: pytest.CaptureFixture) -> None:
+    cmd_recurring_add(_recurring_args(amount=50.0, category="food"))
+    with patch("budgetcli.cli.date") as mock_date:
+        mock_date.today.return_value = date(2026, 6, 1)
+        mock_date.fromisoformat = date.fromisoformat
+        cmd_recurring_apply(_args())
+    assert storage.load_recurring()[0].last_applied == date(2026, 6, 1)
+
+
+def test_recurring_apply_skips_already_applied(capsys: pytest.CaptureFixture) -> None:
+    cmd_recurring_add(_recurring_args(amount=50.0, category="food"))
+    with patch("budgetcli.cli.date") as mock_date:
+        mock_date.today.return_value = date(2026, 6, 1)
+        mock_date.fromisoformat = date.fromisoformat
+        cmd_recurring_apply(_args())
+        cmd_recurring_apply(_args())
+    assert len(storage.load_transactions()) == 1
+
+
+def test_recurring_apply_no_due_message(capsys: pytest.CaptureFixture) -> None:
+    cmd_recurring_add(_recurring_args(amount=50.0, category="food"))
+    with patch("budgetcli.cli.date") as mock_date:
+        mock_date.today.return_value = date(2026, 6, 1)
+        mock_date.fromisoformat = date.fromisoformat
+        cmd_recurring_apply(_args())
+        capsys.readouterr()
+        cmd_recurring_apply(_args())
+    assert "No recurring transactions due" in capsys.readouterr().out
+
+
+def test_recurring_apply_prints_count(capsys: pytest.CaptureFixture) -> None:
+    cmd_recurring_add(_recurring_args(amount=50.0, category="food"))
+    cmd_recurring_add(_recurring_args(amount=1200.0, category="rent"))
+    with patch("budgetcli.cli.date") as mock_date:
+        mock_date.today.return_value = date(2026, 6, 1)
+        mock_date.fromisoformat = date.fromisoformat
+        cmd_recurring_apply(_args())
+    out = capsys.readouterr().out
+    assert "2 transaction(s) applied" in out

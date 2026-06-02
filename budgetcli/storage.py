@@ -68,6 +68,17 @@ def clear_all() -> None:
     _, limits = _read_ledger()
     _write_ledger([], limits)
 
+def delete_transaction(index: int) -> None:
+    raw_transactions, limits = _read_ledger()
+    raw_transactions.pop(index)
+    _write_ledger(raw_transactions, limits)
+
+
+def update_transaction(index: int, transaction: Transaction) -> None:
+    raw_transactions, limits = _read_ledger()
+    raw_transactions[index] = transaction.to_dict()
+    _write_ledger(raw_transactions, limits)
+
 
 def export_csv(path: Path) -> None:
     """Export all transactions to a CSV file at the given path.

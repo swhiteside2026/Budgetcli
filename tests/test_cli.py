@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 import budgetcli.storage as storage
-from budgetcli.cli import cmd_add, cmd_export, cmd_limits, cmd_set_limit
+from budgetcli.cli import cmd_add, cmd_edit, cmd_export, cmd_limits, cmd_set_limit
 from budgetcli.models import Transaction
 from unittest.mock import patch
 
@@ -185,3 +185,80 @@ def test_add_no_warning_when_no_limit_set(capsys: pytest.CaptureFixture) -> None
         args = argparse.Namespace(amount=50.0, category="food", note="")
         cmd_add(args)
     assert capsys.readouterr().err == ""
+
+
+# --- cmd_edit tests ---
+
+def _add_transaction(amount: float, category: str, note: str = "") -> None:
+    storage.add_transaction(Transaction(amount=amount, category=category, date=date(2026, 5, 1), note=note))
+
+
+def test_edit_no_transactions_prints_message(capsys: pytest.CaptureFixture) -> None:
+    cmd_edit(_args())
+    assert "No transactions to edit" in capsys.readouterr().out
+
+
+def test_edit_cancel_aborts(capsys: pytest.CaptureFixture) -> None:
+    _add_transaction(10.0, "food", "lunch")
+    with patch("builtins.input", return_value="cancel"):
+        cmd_edit(_args())
+    assert "Cancelled" in capsys.readouterr().out
+    assert storage.load_transactions()[0].amount == 10.0
+
+
+def test_edit_invalid_selection_non_numeric(capsys: pytest.CaptureFixture) -> None:
+    _add_transaction(10.0, "food")
+    with patch("builtins.input", return_value="abc"):
+        cmd_edit(_args())
+    assert "Invalid input" in capsys.readouterr().out
+
+
+def test_edit_invalid_selection_out_of_range(capsys: pytest.CaptureFixture) -> None:
+    _add_transaction(10.0, "food")
+    with patch("builtins.input", return_value="99"):
+        cmd_edit(_args())
+    assert "Invalid number" in capsys.readouterr().out
+
+
+def test_edit_updates_all_fields(capsys: pytest.CaptureFixture) -> None:
+    _add_transaction(10.0, "food", "lunch")
+    with patch("builtins.input", side_effect=["1", "25.00", "transport", "taxi"]):
+        cmd_edit(_args())
+    t = storage.load_transactions()[0]
+    assert t.amount == 25.0
+    assert t.category == "transport"
+    assert t.note == "taxi"
+    assert "updated" in capsys.readouterr().out
+
+
+def test_edit_keeps_originals_on_empty_input(capsys: pytest.CaptureFixture) -> None:
+    _add_transaction(10.0, "food", "lunch")
+    with patch("builtins.input", side_effect=["1", "", "", ""]):
+        cmd_edit(_args())
+    t = storage.load_transactions()[0]
+    assert t.amount == 10.0
+    assert t.category == "food"
+    assert t.note == "lunch"
+
+
+def test_edit_preserves_original_date(capsys: pytest.CaptureFixture) -> None:
+    _add_transaction(10.0, "food")
+    with patch("builtins.input", side_effect=["1", "20.0", "", ""]):
+        cmd_edit(_args())
+    assert storage.load_transactions()[0].date == date(2026, 5, 1)
+
+
+def test_edit_invalid_amount_prints_error(capsys: pytest.CaptureFixture) -> None:
+    _add_transaction(10.0, "food")
+    with patch("builtins.input", side_effect=["1", "notanumber", "", ""]):
+        cmd_edit(_args())
+    assert "Error" in capsys.readouterr().out
+    assert storage.load_transactions()[0].amount == 10.0
+
+
+def test_edit_invalid_category_prints_error(capsys: pytest.CaptureFixture) -> None:
+    _add_transaction(10.0, "food")
+    with patch("builtins.input", side_effect=["1", "", "invalidcat", ""]):
+        cmd_edit(_args())
+    assert "Error" in capsys.readouterr().out
+    assert storage.load_transactions()[0].category == "food"

@@ -4,15 +4,18 @@ from datetime import date
 from importlib.metadata import version
 from pathlib import Path
 
+from .storage import _write_ledger
 from budgetcli.models import VALID_CATEGORIES, BudgetLimit, Transaction
 from budgetcli.reports import WARN_THRESHOLD, category_breakdown, check_limits, monthly_summary, overall_balance
 from budgetcli.storage import (
     add_transaction,
     clear_all,
+    delete_transaction,
     export_csv,
     load_limits,
     load_transactions,
     set_limit,
+    update_transaction,
 )
 
 LIST_LIMIT = 20
@@ -89,6 +92,78 @@ def cmd_clear(args: argparse.Namespace, confirm: str | None = None) -> None:
     else:
         print("Cancelled.")
 
+def cmd_delete(args: argparse.Namespace, confirm: str | None = None) -> None:
+    transactions = load_transactions()
+
+    if not transactions:
+        print("No transactions to delete.")
+        return
+
+    print("Transactions:")
+    for i, t in enumerate(transactions, start=1):
+        print(f"  {i}. {t.date} {t.category} ${t.amount:.2f} {t.note}")
+
+    if confirm is None:
+        confirm = input('Enter the number of the transaction to delete (or "cancel"): ')
+
+    if confirm.strip().lower() == "cancel":
+        print("Cancelled.")
+        return
+
+    try:
+        index = int(confirm.strip()) - 1
+        if 0 <= index < len(transactions):
+            delete_transaction(index)
+            print(f"Transaction {index + 1} deleted.")
+        else:
+            print(f"Invalid number. Please enter a number between 1 and {len(transactions)}.")
+    except ValueError:
+        print("Invalid input. Please enter a number or 'cancel'.")
+
+
+def cmd_edit(args: argparse.Namespace) -> None:
+    transactions = load_transactions()
+
+    if not transactions:
+        print("No transactions to edit.")
+        return
+
+    print("Transactions:")
+    for i, t in enumerate(transactions, start=1):
+        print(f"  {i}. {t.date} {t.category} ${t.amount:.2f} {t.note}")
+
+    selection = input('Enter the number of the transaction to edit (or "cancel"): ')
+    if selection.strip().lower() == "cancel":
+        print("Cancelled.")
+        return
+
+    try:
+        index = int(selection.strip()) - 1
+    except ValueError:
+        print("Invalid input. Please enter a number or 'cancel'.")
+        return
+
+    if not (0 <= index < len(transactions)):
+        print(f"Invalid number. Please enter a number between 1 and {len(transactions)}.")
+        return
+
+    t = transactions[index]
+    raw_amount = input(f"Amount [{t.amount:.2f}]: ").strip()
+    raw_category = input(f"Category [{t.category}]: ").strip()
+    raw_note = input(f"Note [{t.note}]: ").strip()
+
+    try:
+        amount = float(raw_amount) if raw_amount else t.amount
+        category = raw_category if raw_category else t.category
+        note = raw_note if raw_note else t.note
+        updated = Transaction(amount=amount, category=category, date=t.date, note=note)
+    except ValueError as e:
+        print(f"Error: {e}")
+        return
+
+    update_transaction(index, updated)
+    print(f"Transaction {index + 1} updated.")
+
 
 def cmd_set_limit(args: argparse.Namespace) -> None:
     try:
@@ -150,6 +225,8 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("report", help="Show spending breakdown by category")
     subparsers.add_parser("list", help="List the last 20 transactions")
     subparsers.add_parser("clear", help="Delete all transactions")
+    subparsers.add_parser("delete", help="Delete a single transaction")
+    subparsers.add_parser("edit", help="Edit an existing transaction")
     subparsers.add_parser("export", help="Export all transactions to transactions.csv")
 
     set_limit_parser = subparsers.add_parser("set-limit", help="Set a monthly spending limit for a category")
@@ -170,6 +247,8 @@ def main() -> None:
         "report": cmd_report,
         "list": cmd_list,
         "clear": cmd_clear,
+        "delete": cmd_delete,
+        "edit": cmd_edit,
         "export": cmd_export,
         "set-limit": cmd_set_limit,
         "limits": cmd_limits,

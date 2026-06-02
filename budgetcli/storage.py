@@ -35,13 +35,15 @@ def _write_ledger(
     limits: dict[str, float],
     recurring: list[dict],
 ) -> None:
-    DATA_FILE.write_text(
-        json.dumps(
-            {"transactions": transactions, "limits": limits, "recurring": recurring},
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+    # Read-modify-write so any extra top-level keys (e.g. custom_categories) are preserved.
+    _ensure_data_file()
+    try:
+        existing = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+        raw: dict = existing if isinstance(existing, dict) else {}
+    except (json.JSONDecodeError, FileNotFoundError):
+        raw = {}
+    raw.update({"transactions": transactions, "limits": limits, "recurring": recurring})
+    DATA_FILE.write_text(json.dumps(raw, indent=2), encoding="utf-8")
 
 
 def load_transactions() -> list[Transaction]:
@@ -126,3 +128,32 @@ def export_csv(
         writer.writerow(["date", "category", "amount", "note"])
         for t in transactions:
             writer.writerow([t.date.isoformat(), t.category, round(t.amount, 2), t.note])
+
+
+def _read_raw() -> dict:
+    """Return the full ledger JSON as a dict, handling old bare-array format."""
+    _ensure_data_file()
+    raw = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+    return raw if isinstance(raw, dict) else {"transactions": raw, "limits": {}, "recurring": []}
+
+
+def load_custom_categories() -> list[str]:
+    return _read_raw().get("custom_categories", [])
+
+
+def add_custom_category(name: str) -> None:
+    raw = _read_raw()
+    cats: list[str] = raw.get("custom_categories", [])
+    if name not in cats:
+        cats.append(name)
+    raw["custom_categories"] = cats
+    DATA_FILE.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
+
+def remove_custom_category(name: str) -> None:
+    raw = _read_raw()
+    cats: list[str] = raw.get("custom_categories", [])
+    if name in cats:
+        cats.remove(name)
+    raw["custom_categories"] = cats
+    DATA_FILE.write_text(json.dumps(raw, indent=2), encoding="utf-8")

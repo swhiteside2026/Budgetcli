@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html data-theme="cupcake" lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}BudgetBalancer{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.css" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+{% set cat_badge = {
+  'income':        'badge-success',
+  'food':          'badge-warning',
+  'transport':     'badge-info',
+  'rent':          'badge-error',
+  'utilities':     'badge-neutral',
+  'entertainment': 'badge-accent',
+  'health':        'badge-primary',
+  'investment':    'badge-secondary',
+  'hysa':          'badge-secondary',
+  'other':         'badge-ghost'
+} %}
+
+<body class="bg-rose-50 min-h-screen">
+<div class="drawer lg:drawer-open">
+  <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+
+  <!-- ── Main content ─────────────────────────────────────────── -->
+  <div class="drawer-content flex flex-col min-h-screen">
+
+    <!-- Mobile navbar (hidden on lg+) -->
+    <nav class="navbar bg-pink-400 text-white sticky top-0 z-20 shadow-md px-4 gap-2 lg:hidden">
+      <label for="nav-drawer" class="btn btn-ghost btn-circle drawer-button text-white">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </label>
+      <span class="text-lg font-bold tracking-tight flex-1">BudgetBalancer</span>
+    </nav>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=True) %}
+    {% if messages %}
+    <div class="max-w-5xl w-full mx-auto px-6 pt-5 space-y-2">
+      {% for cat, msg in messages %}
+      <div role="alert" class="alert {{ 'alert-success' if cat == 'success' else 'alert-error' if cat == 'error' else 'alert-info' }} shadow-sm rounded-xl">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          {% if cat == 'success' %}
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          {% elif cat == 'error' %}
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          {% else %}
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          {% endif %}
+        </svg>
+        <span>{{ msg }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <!-- Page body -->
+    <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-6 space-y-6">
+      {% block content %}{% endblock %}
+    </main>
+
+  </div><!-- /drawer-content -->
+
+  <!-- ── Sidebar ───────────────────────────────────────────────── -->
+  <div class="drawer-side z-30">
+    <label for="nav-drawer" aria-label="Close menu" class="drawer-overlay"></label>
+
+    <aside class="min-h-full w-64 flex flex-col" style="background: #fdf2f8;">
+
+      <!-- Brand header -->
+      <div class="px-6 py-6" style="background: linear-gradient(135deg, #f472b6, #ec4899);">
+        <div class="flex items-center gap-3 mb-1">
+          <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 10v1m-3-5h6" />
+            </svg>
+          </div>
+          <p class="text-xl font-bold text-white tracking-tight">BudgetBalancer</p>
+        </div>
+        <p class="text-pink-100 text-xs font-medium uppercase tracking-widest ml-11">Personal Finance</p>
+      </div>
+
+      <!-- Nav links -->
+      <nav class="flex-1 px-3 py-4 space-y-0.5">
+        <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-widest text-pink-400">Navigate</p>
+
+        {% set nav_items = [
+          ('dashboard',    url_for('dashboard'),    'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', 'Dashboard'),
+          ('transactions', url_for('transactions'), 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', 'Transactions'),
+          ('limits',       url_for('limits'),       'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6', 'Budget Limits'),
+          ('recurring',    url_for('recurring'),    'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15', 'Recurring'),
+          ('export',       url_for('export'),       'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4', 'Export'),
+          ('categories',  url_for('categories'),   'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z', 'Categories'),
+        ] %}
+
+        {% for endpoint, href, icon_path, label in nav_items %}
+        {% set is_active = request.endpoint == endpoint %}
+        <a href="{{ href }}"
+           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
+                  {{ 'bg-pink-500 text-white shadow-md shadow-pink-200' if is_active
+                     else 'text-pink-700 hover:bg-pink-100 hover:text-pink-900' }}">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ icon_path }}" />
+          </svg>
+          {{ label }}
+        </a>
+        {% endfor %}
+      </nav>
+
+      <!-- Balance footer -->
+      <div class="mx-3 mb-4 rounded-xl p-4" style="background: linear-gradient(135deg, #fce7f3, #ffe4e6);">
+        <p class="text-xs font-semibold uppercase tracking-wider text-pink-400 mb-1">All-time balance</p>
+        <p class="text-2xl font-bold {{ 'text-emerald-600' if global_balance >= 0 else 'text-red-500' }}">
+          {{ "+" if global_balance >= 0 else "−" }}${{ "%.2f"|format(global_balance_abs) }}
+        </p>
+        <p class="text-xs text-pink-400 mt-0.5">{{ "Net positive" if global_balance >= 0 else "Net deficit" }}</p>
+      </div>
+
+    </aside>
+  </div><!-- /drawer-side -->
+
+</div><!-- /drawer -->
+</body>
+</html>

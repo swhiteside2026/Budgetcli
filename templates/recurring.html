@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Recurring — BudgetBalancer{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div>
+  <h1 class="text-2xl font-bold text-pink-900">Recurring Transactions</h1>
+  <p class="text-pink-400 text-sm mt-0.5">Auto-apply monthly transactions like rent, subscriptions, and paychecks</p>
+</div>
+
+<!-- ── Top row: apply card + add form ─────────────────────────── -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- Apply due -->
+  <div class="rounded-2xl border border-pink-100 bg-white shadow-sm p-6">
+    <div class="flex items-center gap-2 mb-2">
+      <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </div>
+      <h2 class="font-bold text-pink-900">Apply Recurring</h2>
+    </div>
+
+    {% if due_count > 0 %}
+    <p class="text-sm text-gray-500 mb-4">
+      <span class="font-bold text-pink-500">{{ due_count }}</span>
+      transaction{{ "s" if due_count != 1 else "" }} due for {{ today.strftime("%B %Y") }}.
+    </p>
+    {% else %}
+    <p class="text-sm text-gray-400 mb-4">All recurring transactions are up to date for {{ today.strftime("%B %Y") }}.</p>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('apply_recurring_route') }}">
+      <button type="submit"
+        class="btn btn-primary btn-sm w-full rounded-xl {{ 'opacity-50 cursor-not-allowed' if due_count == 0 else '' }}"
+        {% if due_count == 0 %}disabled{% endif %}>
+        Apply All Due ({{ due_count }})
+      </button>
+    </form>
+  </div>
+
+  <!-- Add recurring form -->
+  <div class="rounded-2xl border border-pink-100 bg-white shadow-sm p-6 lg:col-span-2">
+    <div class="flex items-center gap-2 mb-4">
+      <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+      </div>
+      <h2 class="font-bold text-pink-900">Add Recurring Transaction</h2>
+    </div>
+    <form method="POST" action="{{ url_for('add_recurring_route') }}" class="flex flex-wrap gap-3 items-end">
+      <div class="form-control min-w-32 flex-1">
+        <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Amount</span></label>
+        <label class="input input-bordered input-sm flex items-center gap-1 rounded-xl border-pink-200 focus-within:border-pink-400">
+          <span class="text-gray-300">$</span>
+          <input type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required class="grow bg-transparent" />
+        </label>
+      </div>
+      <div class="form-control min-w-36 flex-1">
+        <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Category</span></label>
+        <select name="category" required class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400">
+          {% for cat in categories %}
+          <option value="{{ cat }}">{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Frequency</span></label>
+        <div class="input input-bordered input-sm rounded-xl border-pink-100 flex items-center px-3 text-gray-400 text-sm bg-gray-50 select-none">
+          Monthly
+        </div>
+      </div>
+      <div class="form-control min-w-44 flex-2">
+        <label class="label py-1">
+          <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Note</span>
+          <span class="label-text-alt text-gray-300">optional</span>
+        </label>
+        <input type="text" name="note" placeholder="e.g. Netflix, Rent, Salary" maxlength="200" class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm rounded-xl px-6">Add</button>
+    </form>
+  </div>
+
+</div>
+
+<!-- ── Recurring list ──────────────────────────────────────────── -->
+<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+  <div class="px-6 pt-5 pb-1 flex items-center gap-2">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+    </svg>
+    <h2 class="font-bold text-pink-900">All Recurring</h2>
+    <span class="badge badge-ghost badge-sm">{{ indexed_recurring|length }}</span>
+  </div>
+
+  {% if indexed_recurring %}
+  <div class="overflow-x-auto px-2 pb-4">
+    <table class="table table-sm w-full">
+      <thead>
+        <tr class="text-xs uppercase tracking-wide text-gray-400 border-b border-pink-50">
+          <th class="font-semibold py-3">Category</th>
+          <th class="font-semibold">Amount</th>
+          <th class="font-semibold">Frequency</th>
+          <th class="font-semibold">Note</th>
+          <th class="font-semibold">Last Applied</th>
+          <th class="font-semibold">Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for idx, rt, is_due in indexed_recurring %}
+        <tr class="hover:bg-pink-50/40 border-b border-pink-50/50 group">
+          <td class="py-3">
+            <span class="badge {{ cat_badge.get(rt.category, 'badge-ghost') }} badge-sm font-medium">{{ rt.category }}</span>
+          </td>
+          <td class="font-mono font-semibold {{ 'text-emerald-600' if rt.category == 'income' else 'text-red-500' }} whitespace-nowrap">
+            {{ "+" if rt.category == 'income' else "−" }}${{ "%.2f"|format(rt.amount) }}
+          </td>
+          <td class="text-sm text-gray-400 capitalize">{{ rt.frequency }}</td>
+          <td class="text-sm text-gray-400 max-w-xs truncate">{{ rt.note or "—" }}</td>
+          <td class="text-sm text-gray-400 whitespace-nowrap">
+            {% if rt.last_applied %}
+            {{ rt.last_applied.strftime("%b %d, %Y") }}
+            {% else %}
+            <span class="text-gray-300">Never</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if is_due %}
+            <span class="badge badge-warning badge-sm font-medium">Due</span>
+            {% else %}
+            <span class="badge badge-success badge-sm font-medium">Applied</span>
+            {% endif %}
+          </td>
+          <td class="opacity-0 group-hover:opacity-100 transition-opacity">
+            <form method="POST" action="{{ url_for('delete_recurring_route', idx=idx) }}" class="inline">
+              <button type="submit"
+                class="btn btn-ghost btn-xs rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50"
+                onclick="return confirm('Remove this recurring transaction?')">
+                Remove
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-14 text-gray-300">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    </svg>
+    <p class="font-medium text-gray-400">No recurring transactions</p>
+    <p class="text-sm mt-1">Add one above to auto-apply it each month.</p>
+  </div>
+  {% endif %}
+
+</div>
+
+{% endblock %}

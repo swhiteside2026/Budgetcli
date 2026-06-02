@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Transactions — BudgetBalancer{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div>
+  <h1 class="text-2xl font-bold text-pink-900">Transactions</h1>
+  <p class="text-pink-400 text-sm mt-0.5">{{ indexed_transactions|length }} total transactions</p>
+</div>
+
+<!-- ── Add transaction ─────────────────────────────────────────── -->
+<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+  <div class="px-6 pt-5 pb-2 flex items-center gap-2">
+    <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+    </div>
+    <h2 class="font-bold text-pink-900">Add Transaction</h2>
+  </div>
+  <div class="px-6 pb-6">
+    <form method="POST" action="{{ url_for('add_transaction_route') }}" class="flex flex-wrap gap-3 items-end">
+      <div class="form-control min-w-32 flex-1">
+        <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Amount</span></label>
+        <label class="input input-bordered input-sm flex items-center gap-1 rounded-xl border-pink-200 focus-within:border-pink-400">
+          <span class="text-gray-300">$</span>
+          <input type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required class="grow bg-transparent" />
+        </label>
+      </div>
+      <div class="form-control min-w-36 flex-1">
+        <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Category</span></label>
+        <select name="category" required class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400">
+          {% for cat in categories %}
+          <option value="{{ cat }}">{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-control min-w-36 flex-1">
+        <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Date</span></label>
+        <input type="date" name="date" value="{{ today }}" required class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400" />
+      </div>
+      <div class="form-control min-w-48 flex-2">
+        <label class="label py-1">
+          <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Note</span>
+          <span class="label-text-alt text-gray-300">optional</span>
+        </label>
+        <input type="text" name="note" placeholder="What was this for?" maxlength="200" class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm rounded-xl px-6">Add</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Transaction list ────────────────────────────────────────── -->
+<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+  <div class="px-6 pt-5 pb-1 flex items-center gap-2">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+    </svg>
+    <h2 class="font-bold text-pink-900">All Transactions</h2>
+    <span class="badge badge-ghost badge-sm">{{ indexed_transactions|length }}</span>
+  </div>
+
+  {% if indexed_transactions %}
+  <div class="overflow-x-auto px-2 pb-4">
+    <table class="table table-sm w-full">
+      <thead>
+        <tr class="text-xs uppercase tracking-wide text-gray-400 border-b border-pink-50">
+          <th class="font-semibold py-3">Date</th>
+          <th class="font-semibold">Category</th>
+          <th class="font-semibold">Amount</th>
+          <th class="font-semibold">Note</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for idx, t in indexed_transactions %}
+        <tr class="hover:bg-pink-50/40 border-b border-pink-50/50 group">
+          <td class="text-sm text-gray-400 whitespace-nowrap py-3">{{ t.date.strftime("%b %d, %Y") }}</td>
+          <td>
+            <span class="badge {{ cat_badge.get(t.category, 'badge-ghost') }} badge-sm font-medium">{{ t.category }}</span>
+          </td>
+          <td class="font-mono font-semibold {{ 'text-emerald-600' if t.is_income else 'text-red-500' }} whitespace-nowrap">
+            {{ "+" if t.is_income else "−" }}${{ "%.2f"|format(t.amount) }}
+          </td>
+          <td class="text-sm text-gray-400 max-w-xs truncate">{{ t.note or "—" }}</td>
+          <td class="text-right whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              class="btn btn-ghost btn-xs rounded-lg text-pink-400 hover:text-pink-600 hover:bg-pink-50"
+              data-idx="{{ idx }}"
+              data-amount="{{ t.amount }}"
+              data-category="{{ t.category }}"
+              data-date="{{ t.date.isoformat() }}"
+              data-note="{{ t.note | e }}"
+              onclick="openEdit(this)">Edit</button>
+            <button
+              class="btn btn-ghost btn-xs rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 ml-1"
+              data-idx="{{ idx }}"
+              data-label="{{ t.date.strftime('%b %d') }} · {{ t.category }} · ${{ '%.2f'|format(t.amount) }}"
+              onclick="openDelete(this)">Delete</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-14 text-gray-300">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+    </svg>
+    <p class="font-medium text-gray-400">No transactions yet</p>
+    <p class="text-sm mt-1">Use the form above to add your first one.</p>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Edit modal -->
+<dialog id="edit_modal" class="modal">
+  <div class="modal-box rounded-2xl border border-pink-100 shadow-xl max-w-lg">
+    <h3 class="font-bold text-lg text-pink-900 mb-5">Edit Transaction</h3>
+    <form method="POST" id="edit_form" class="space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Amount</span></label>
+          <label class="input input-bordered flex items-center gap-1 rounded-xl border-pink-200">
+            <span class="text-gray-300">$</span>
+            <input type="number" name="amount" step="0.01" min="0.01" required class="grow bg-transparent" />
+          </label>
+        </div>
+        <div class="form-control">
+          <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Date</span></label>
+          <input type="date" name="date" required class="input input-bordered rounded-xl border-pink-200" />
+        </div>
+      </div>
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Category</span></label>
+        <select name="category" required class="select select-bordered rounded-xl border-pink-200">
+          {% for cat in categories %}
+          <option value="{{ cat }}">{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Note</span></label>
+        <input type="text" name="note" placeholder="Optional note" maxlength="200" class="input input-bordered rounded-xl border-pink-200" />
+      </div>
+      <div class="modal-action mt-2 gap-2">
+        <button type="button" class="btn btn-ghost rounded-xl" onclick="document.getElementById('edit_modal').close()">Cancel</button>
+        <button type="submit" class="btn btn-primary rounded-xl px-8">Save Changes</button>
+      </div>
+    </form>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Delete confirmation modal -->
+<dialog id="delete_modal" class="modal">
+  <div class="modal-box rounded-2xl border border-pink-100 shadow-xl">
+    <h3 class="font-bold text-lg text-pink-900">Delete this transaction?</h3>
+    <p class="text-sm text-gray-500 mt-2 mb-1">This will permanently remove:</p>
+    <div class="bg-rose-50 border border-rose-100 rounded-xl px-4 py-3 my-3">
+      <p class="font-semibold text-gray-700" id="delete_label"></p>
+    </div>
+    <div class="modal-action gap-2">
+      <button class="btn btn-ghost rounded-xl" onclick="document.getElementById('delete_modal').close()">Cancel</button>
+      <form method="POST" id="delete_form" class="inline">
+        <button type="submit" class="btn btn-error rounded-xl px-8">Delete</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<script>
+function openEdit(btn) {
+  const d = btn.dataset;
+  const form = document.getElementById('edit_form');
+  form.action = `/transactions/${d.idx}/edit`;
+  form.querySelector('[name=amount]').value = d.amount;
+  form.querySelector('[name=category]').value = d.category;
+  form.querySelector('[name=date]').value = d.date;
+  form.querySelector('[name=note]').value = d.note;
+  document.getElementById('edit_modal').showModal();
+}
+function openDelete(btn) {
+  const d = btn.dataset;
+  document.getElementById('delete_form').action = `/transactions/${d.idx}/delete`;
+  document.getElementById('delete_label').textContent = d.label;
+  document.getElementById('delete_modal').showModal();
+}
+</script>
+
+{% endblock %}

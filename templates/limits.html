@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Budget Limits — BudgetBalancer{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div>
+  <h1 class="text-2xl font-bold text-pink-900">Budget Limits</h1>
+  <p class="text-pink-400 text-sm mt-0.5">Set monthly spending limits by category — {{ month_label }}</p>
+</div>
+
+<!-- ── Set limit form ──────────────────────────────────────────── -->
+<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+  <div class="px-6 pt-5 pb-2 flex items-center gap-2">
+    <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+    </div>
+    <h2 class="font-bold text-pink-900">Set a Limit</h2>
+  </div>
+  <div class="px-6 pb-6">
+    <form method="POST" action="{{ url_for('set_limit_route') }}" class="flex flex-wrap gap-3 items-end">
+      <div class="form-control min-w-44 flex-1">
+        <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Category</span></label>
+        <select name="category" required class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400">
+          {% for cat in available_categories %}
+          <option value="{{ cat }}">
+            {{ cat }}{% if cat in current_limits %} — currently ${{ "%.0f"|format(current_limits[cat]) }}/mo{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-control min-w-44 flex-1">
+        <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Monthly limit</span></label>
+        <label class="input input-bordered input-sm flex items-center gap-1 rounded-xl border-pink-200 focus-within:border-pink-400">
+          <span class="text-gray-300">$</span>
+          <input type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required class="grow bg-transparent" />
+          <span class="text-gray-300 text-xs">/mo</span>
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm rounded-xl px-6">Set Limit</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Current limits ──────────────────────────────────────────── -->
+<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+  <div class="px-6 pt-5 pb-4 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+      </svg>
+      <h2 class="font-bold text-pink-900">Current Limits</h2>
+      <span class="text-sm text-pink-300">— {{ month_label }}</span>
+    </div>
+    {% if budget_data %}
+    <span class="badge badge-ghost badge-sm">{{ budget_data|length }} active</span>
+    {% endif %}
+  </div>
+
+  {% if budget_data %}
+  <div class="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
+    {% for item in budget_data %}
+    <div class="rounded-xl bg-rose-50/60 border border-pink-100 p-4">
+      <div class="flex justify-between items-start mb-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-semibold capitalize text-gray-700">{{ item.category }}</span>
+            <span class="badge {{ item.status_class }} badge-sm text-xs">{{ item.status }}</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-0.5">
+            ${{ "%.2f"|format(item.limit) }}/month limit
+          </p>
+        </div>
+        <form method="POST" action="{{ url_for('delete_limit_route', category=item.category) }}" class="inline">
+          <button type="submit"
+            class="btn btn-ghost btn-xs rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50"
+            onclick="return confirm('Remove the {{ item.category }} budget limit?')">
+            Remove
+          </button>
+        </form>
+      </div>
+
+      <div class="flex justify-between text-sm mb-2">
+        <span class="text-gray-500 font-medium">${{ "%.2f"|format(item.spent) }} spent</span>
+        <span class="{{ item.label_class or 'text-gray-400' }}">${{ "%.2f"|format(item.limit) }} limit</span>
+      </div>
+
+      <progress class="progress {{ item.bar_class }} w-full h-3 rounded-full" value="{{ item.pct }}" max="100"></progress>
+
+      <div class="mt-2 text-xs">
+        {% if item.bar_class == 'progress-error' %}
+        <span class="text-red-400 font-medium">Over budget by ${{ "%.2f"|format(item.spent - item.limit) }}</span>
+        {% elif item.bar_class == 'progress-warning' %}
+        <span class="text-yellow-500">{{ "%.0f"|format(item.pct) }}% used — approaching limit</span>
+        {% else %}
+        <span class="text-gray-300">${{ "%.2f"|format([item.limit - item.spent, 0]|max) }} remaining this month</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-14 text-gray-300">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+    </svg>
+    <p class="font-medium text-gray-400">No limits set yet</p>
+    <p class="text-sm mt-1">Use the form above to set a monthly spending limit.</p>
+  </div>
+  {% endif %}
+
+</div>
+
+{% endblock %}

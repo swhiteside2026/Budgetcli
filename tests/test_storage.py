@@ -5,7 +5,7 @@ from datetime import date
 from pathlib import Path
 
 import budgetcli.storage as storage
-from budgetcli.models import Transaction
+from budgetcli.models import RecurringTransaction, Transaction
 from budgetcli.storage import load_limits, remove_limit, set_limit
 
 
@@ -190,3 +190,61 @@ def test_load_limits_from_bare_array_format(tmp_path: Path, monkeypatch: pytest.
     fake_file.write_text(json.dumps([]), encoding="utf-8")
     monkeypatch.setattr(storage, "DATA_FILE", fake_file)
     assert storage.load_limits() == {}
+
+
+# --- recurring storage tests ---
+
+def _make_recurring(amount: float = 100.0, category: str = "food") -> RecurringTransaction:
+    return RecurringTransaction(amount=amount, category=category, frequency="monthly")
+
+
+def test_load_recurring_empty_by_default() -> None:
+    assert storage.load_recurring() == []
+
+
+def test_add_and_load_recurring() -> None:
+    rt = _make_recurring(amount=1200.0, category="rent")
+    storage.add_recurring(rt)
+    loaded = storage.load_recurring()
+    assert len(loaded) == 1
+    assert loaded[0].amount == 1200.0
+    assert loaded[0].category == "rent"
+    assert loaded[0].last_applied is None
+
+
+def test_add_multiple_recurring() -> None:
+    storage.add_recurring(_make_recurring(100.0, "food"))
+    storage.add_recurring(_make_recurring(1200.0, "rent"))
+    assert len(storage.load_recurring()) == 2
+
+
+def test_save_recurring_updates_last_applied() -> None:
+    rt = _make_recurring()
+    storage.add_recurring(rt)
+    loaded = storage.load_recurring()
+    loaded[0].last_applied = date(2026, 6, 1)
+    storage.save_recurring(loaded)
+    assert storage.load_recurring()[0].last_applied == date(2026, 6, 1)
+
+
+def test_recurring_preserved_across_add_transaction() -> None:
+    storage.add_recurring(_make_recurring())
+    storage.add_transaction(_make_transaction())
+    assert len(storage.load_recurring()) == 1
+    assert len(storage.load_transactions()) == 1
+
+
+def test_recurring_preserved_across_clear_all() -> None:
+    storage.add_recurring(_make_recurring())
+    storage.add_transaction(_make_transaction())
+    storage.clear_all()
+    assert storage.load_transactions() == []
+    assert len(storage.load_recurring()) == 1
+
+
+def test_load_recurring_from_bare_array_format(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+    fake_file = tmp_path / "legacy.json"
+    fake_file.write_text(json.dumps([]), encoding="utf-8")
+    monkeypatch.setattr(storage, "DATA_FILE", fake_file)
+    assert storage.load_recurring() == []

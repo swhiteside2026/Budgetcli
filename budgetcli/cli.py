@@ -182,6 +182,73 @@ def cmd_edit(args: argparse.Namespace) -> None:
     print(f"Transaction {index + 1} updated.")
 
 
+def cmd_help(args: argparse.Namespace) -> None:
+    entries = [
+        (
+            "add <amount> <category> [--note TEXT]",
+            "Record a new income or expense transaction.",
+            'budget add 45.50 food --note "Groceries"',
+        ),
+        (
+            "summary",
+            "Show this month's income, expenses, net, and top spending category.",
+            "budget summary",
+        ),
+        (
+            "report",
+            "Show spending breakdown by category for the current month.",
+            "budget report",
+        ),
+        (
+            "list [--month YYYY-MM]",
+            "List the last 20 transactions, or all from a specific month.",
+            "budget list --month 2026-05",
+        ),
+        (
+            "delete",
+            "Pick a transaction from a numbered list and delete it.",
+            "budget delete",
+        ),
+        (
+            "edit",
+            "Pick a transaction from a numbered list and edit its fields.",
+            "budget edit",
+        ),
+        (
+            "clear",
+            "Delete all transactions (prompts for confirmation).",
+            "budget clear",
+        ),
+        (
+            "export [--from YYYY-MM-DD] [--to YYYY-MM-DD]",
+            "Export transactions to transactions.csv. Date range is optional.",
+            "budget export --from 2026-05-01 --to 2026-05-31",
+        ),
+        (
+            "set-limit <category> <amount>",
+            "Set a monthly spending limit for a category.",
+            "budget set-limit food 300",
+        ),
+        (
+            "limits",
+            "Show all budget limits and current month spending against each.",
+            "budget limits",
+        ),
+        (
+            "help",
+            "Show this help message.",
+            "budget help",
+        ),
+    ]
+
+    print("budget — personal budget tracker\n")
+    for usage, description, example in entries:
+        print(f"  {usage}")
+        print(f"    {description}")
+        print(f"    Example: {example}")
+        print()
+
+
 def cmd_set_limit(args: argparse.Namespace) -> None:
     try:
         BudgetLimit(category=args.category, amount=args.amount)
@@ -269,6 +336,7 @@ def build_parser() -> argparse.ArgumentParser:
     set_limit_parser.add_argument("amount", type=float, help="Monthly spending limit")
 
     subparsers.add_parser("limits", help="Show all budget limits and current month spend")
+    subparsers.add_parser("help", help="Show a summary of every command with examples")
 
     return parser
 
@@ -287,6 +355,7 @@ def main() -> None:
         "export": cmd_export,
         "set-limit": cmd_set_limit,
         "limits": cmd_limits,
+        "help": cmd_help,
     }
     commands[args.command](args)
 

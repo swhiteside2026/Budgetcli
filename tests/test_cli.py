@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 import budgetcli.storage as storage
-from budgetcli.cli import cmd_add, cmd_edit, cmd_export, cmd_limits, cmd_list, cmd_set_limit, cmd_summary
+from budgetcli.cli import cmd_add, cmd_edit, cmd_export, cmd_help, cmd_limits, cmd_list, cmd_set_limit, cmd_summary
 from budgetcli.models import Transaction
 from unittest.mock import patch
 
@@ -401,3 +401,30 @@ def test_summary_net_line_present(capsys: pytest.CaptureFixture) -> None:
         mock_date.today.return_value = date(2026, 5, 1)
         cmd_summary(_args())
     assert "Net" in capsys.readouterr().out
+
+
+# --- cmd_help tests ---
+
+def test_help_prints_header(capsys: pytest.CaptureFixture) -> None:
+    cmd_help(_args())
+    assert "budget" in capsys.readouterr().out
+
+
+def test_help_contains_all_commands(capsys: pytest.CaptureFixture) -> None:
+    cmd_help(_args())
+    out = capsys.readouterr().out
+    for command in ("add", "summary", "report", "list", "delete", "edit", "clear", "export", "set-limit", "limits", "help"):
+        assert command in out
+
+
+def test_help_contains_examples(capsys: pytest.CaptureFixture) -> None:
+    cmd_help(_args())
+    assert "Example:" in capsys.readouterr().out
+
+
+def test_help_shows_flags(capsys: pytest.CaptureFixture) -> None:
+    cmd_help(_args())
+    out = capsys.readouterr().out
+    assert "--month" in out
+    assert "--from" in out
+    assert "--to" in out

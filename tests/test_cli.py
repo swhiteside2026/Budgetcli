@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 import budgetcli.storage as storage
-from budgetcli.cli import cmd_add, cmd_edit, cmd_export, cmd_limits, cmd_set_limit, cmd_summary
+from budgetcli.cli import cmd_add, cmd_edit, cmd_export, cmd_limits, cmd_list, cmd_set_limit, cmd_summary
 from budgetcli.models import Transaction
 from unittest.mock import patch
 
@@ -262,6 +262,39 @@ def test_edit_invalid_category_prints_error(capsys: pytest.CaptureFixture) -> No
         cmd_edit(_args())
     assert "Error" in capsys.readouterr().out
     assert storage.load_transactions()[0].category == "food"
+
+
+# --- cmd_list --month tests ---
+
+def test_list_month_shows_only_matching_transactions(capsys: pytest.CaptureFixture) -> None:
+    storage.add_transaction(Transaction(amount=10.0, category="food", date=date(2026, 5, 1)))
+    storage.add_transaction(Transaction(amount=20.0, category="food", date=date(2026, 6, 1)))
+    cmd_list(argparse.Namespace(month="2026-05"))
+    out = capsys.readouterr().out
+    assert "2026-05-01" in out
+    assert "2026-06-01" not in out
+
+
+def test_list_month_empty_result(capsys: pytest.CaptureFixture) -> None:
+    storage.add_transaction(Transaction(amount=10.0, category="food", date=date(2026, 5, 1)))
+    cmd_list(argparse.Namespace(month="2026-04"))
+    assert "No transactions found" in capsys.readouterr().out
+
+
+def test_list_no_month_returns_recent(capsys: pytest.CaptureFixture) -> None:
+    storage.add_transaction(Transaction(amount=10.0, category="food", date=date(2026, 5, 1)))
+    storage.add_transaction(Transaction(amount=20.0, category="food", date=date(2026, 6, 1)))
+    cmd_list(argparse.Namespace(month=None))
+    out = capsys.readouterr().out
+    assert "2026-05-01" in out
+    assert "2026-06-01" in out
+
+
+def test_list_month_invalid_format_exits(capsys: pytest.CaptureFixture) -> None:
+    with pytest.raises(SystemExit) as exc:
+        cmd_list(argparse.Namespace(month="may-2026"))
+    assert exc.value.code == 1
+    assert "YYYY-MM" in capsys.readouterr().out
 
 
 # --- cmd_summary tests ---

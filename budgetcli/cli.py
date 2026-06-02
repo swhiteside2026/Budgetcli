@@ -79,11 +79,22 @@ def cmd_report(args: argparse.Namespace) -> None:
 
 def cmd_list(args: argparse.Namespace) -> None:
     transactions = load_transactions()
-    recent = transactions[-LIST_LIMIT:]
-    if not recent:
+
+    if args.month:
+        try:
+            year, month = args.month.split("-")
+            year_int, month_int = int(year), int(month)
+        except ValueError:
+            print("Error: --month must be in YYYY-MM format (e.g. 2026-05)")
+            sys.exit(1)
+        to_show = [t for t in transactions if t.date.year == year_int and t.date.month == month_int]
+    else:
+        to_show = transactions[-LIST_LIMIT:]
+
+    if not to_show:
         print("No transactions found.")
         return
-    for t in recent:
+    for t in to_show:
         sign = "+" if t.is_income else "-"
         note_str = f"  {t.note}" if t.note else ""
         print(f"{t.date}  {sign}${t.amount:<10.2f}  {t.category:<16}{note_str}")
@@ -229,7 +240,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("summary", help="Show this month's income, expenses and net")
     subparsers.add_parser("report", help="Show spending breakdown by category")
-    subparsers.add_parser("list", help="List the last 20 transactions")
+    list_parser = subparsers.add_parser("list", help="List the last 20 transactions")
+    list_parser.add_argument("--month", type=str, default=None, metavar="YYYY-MM", help="Show only transactions from this month")
     subparsers.add_parser("clear", help="Delete all transactions")
     subparsers.add_parser("delete", help="Delete a single transaction")
     subparsers.add_parser("edit", help="Edit an existing transaction")

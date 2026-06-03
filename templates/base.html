@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html data-theme="cupcake" lang="en">
+<html data-theme="{{ current_theme }}" lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -21,7 +21,7 @@
   'other':         'badge-ghost'
 } %}
 
-<body class="bg-rose-50 min-h-screen">
+<body class="bg-base-100 min-h-screen">
 <div class="drawer lg:drawer-open">
   <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
 
@@ -29,8 +29,8 @@
   <div class="drawer-content flex flex-col min-h-screen">
 
     <!-- Mobile navbar (hidden on lg+) -->
-    <nav class="navbar bg-pink-400 text-white sticky top-0 z-20 shadow-md px-4 gap-2 lg:hidden">
-      <label for="nav-drawer" class="btn btn-ghost btn-circle drawer-button text-white">
+    <nav class="navbar bg-primary text-primary-content sticky top-0 z-20 shadow-md px-4 gap-2 lg:hidden">
+      <label for="nav-drawer" class="btn btn-ghost btn-circle drawer-button text-primary-content">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
@@ -71,24 +71,24 @@
   <div class="drawer-side z-30">
     <label for="nav-drawer" aria-label="Close menu" class="drawer-overlay"></label>
 
-    <aside class="min-h-full w-64 flex flex-col" style="background: #fdf2f8;">
+    <aside class="min-h-full w-64 flex flex-col bg-base-200">
 
       <!-- Brand header -->
-      <div class="px-6 py-6" style="background: linear-gradient(135deg, #f472b6, #ec4899);">
+      <div class="px-6 py-6 bg-primary">
         <div class="flex items-center gap-3 mb-1">
-          <div class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div class="w-8 h-8 rounded-lg bg-primary-content/20 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary-content" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 10v1m-3-5h6" />
             </svg>
           </div>
-          <p class="text-xl font-bold text-white tracking-tight">BudgetBalancer</p>
+          <p class="text-xl font-bold text-primary-content tracking-tight">BudgetBalancer</p>
         </div>
-        <p class="text-pink-100 text-xs font-medium uppercase tracking-widest ml-11">Personal Finance</p>
+        <p class="text-primary-content/70 text-xs font-medium uppercase tracking-widest ml-11">Personal Finance</p>
       </div>
 
       <!-- Nav links -->
       <nav class="flex-1 px-3 py-4 space-y-0.5">
-        <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-widest text-pink-400">Navigate</p>
+        <p class="px-3 mb-2 text-xs font-semibold uppercase tracking-widest text-base-content/50">Navigate</p>
 
         {% set nav_items = [
           ('dashboard',    url_for('dashboard'),    'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', 'Dashboard'),
@@ -103,8 +103,8 @@
         {% set is_active = request.endpoint == endpoint %}
         <a href="{{ href }}"
            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
-                  {{ 'bg-pink-500 text-white shadow-md shadow-pink-200' if is_active
-                     else 'text-pink-700 hover:bg-pink-100 hover:text-pink-900' }}">
+                  {{ 'bg-primary text-primary-content shadow-sm' if is_active
+                     else 'text-base-content/70 hover:bg-base-300 hover:text-base-content' }}">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ icon_path }}" />
           </svg>
@@ -113,13 +113,30 @@
         {% endfor %}
       </nav>
 
+      <!-- Theme switcher -->
+      <div class="mx-3 mb-3 rounded-xl p-3 bg-base-300">
+        <p class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">Appearance</p>
+        <div class="flex gap-2 flex-wrap">
+          {% for theme_id, theme_name, theme_color in themes %}
+          <form method="POST" action="{{ url_for('set_theme') }}" class="inline-block">
+            <input type="hidden" name="theme" value="{{ theme_id }}" />
+            <button type="submit"
+                    title="{{ theme_name }}"
+                    class="w-6 h-6 rounded-full transition-transform hover:scale-110"
+                    style="background-color: {{ theme_color }}; {% if current_theme == theme_id %}outline: 2px solid oklch(var(--bc) / 0.8); outline-offset: 2px; transform: scale(1.15);{% endif %}">
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+      </div>
+
       <!-- Balance footer -->
-      <div class="mx-3 mb-4 rounded-xl p-4" style="background: linear-gradient(135deg, #fce7f3, #ffe4e6);">
-        <p class="text-xs font-semibold uppercase tracking-wider text-pink-400 mb-1">All-time balance</p>
+      <div class="mx-3 mb-4 rounded-xl p-4 bg-base-300">
+        <p class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-1">All-time balance</p>
         <p class="text-2xl font-bold {{ 'text-emerald-600' if global_balance >= 0 else 'text-red-500' }}">
           {{ "+" if global_balance >= 0 else "−" }}${{ "%.2f"|format(global_balance_abs) }}
         </p>
-        <p class="text-xs text-pink-400 mt-0.5">{{ "Net positive" if global_balance >= 0 else "Net deficit" }}</p>
+        <p class="text-xs text-base-content/50 mt-0.5">{{ "Net positive" if global_balance >= 0 else "Net deficit" }}</p>
       </div>
 
     </aside>

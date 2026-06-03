@@ -3,7 +3,7 @@ import io
 import re
 from datetime import date
 
-from flask import Flask, Response, flash, redirect, render_template, request, url_for
+from flask import Flask, Response, flash, redirect, render_template, request, session, url_for
 
 from budgetcli.models import VALID_CATEGORIES, RecurringTransaction, Transaction
 from budgetcli.reports import category_breakdown, monthly_summary, overall_balance
@@ -25,6 +25,15 @@ from budgetcli.storage import (
 
 app = Flask(__name__)
 app.secret_key = "budgetcli-dev-secret"
+
+THEMES = [
+    ("cupcake", "Pink",   "#ec4899"),
+    ("dark",    "Dark",   "#1d232a"),
+    ("nord",    "Blue",   "#5e81ac"),
+    ("forest",  "Green",  "#1eb854"),
+    ("dracula", "Purple", "#bd93f9"),
+]
+_VALID_THEMES = {t[0] for t in THEMES}
 
 
 @app.before_request
@@ -69,7 +78,21 @@ def _budget_data(
 def inject_globals() -> dict:
     txns = load_transactions()
     bal = overall_balance(txns)
-    return {"global_balance": bal, "global_balance_abs": abs(bal)}
+    current_theme = session.get("theme", "cupcake")
+    return {
+        "global_balance": bal,
+        "global_balance_abs": abs(bal),
+        "current_theme": current_theme,
+        "themes": THEMES,
+    }
+
+
+@app.route("/theme/set", methods=["POST"])
+def set_theme():
+    theme = request.form.get("theme", "cupcake")
+    if theme in _VALID_THEMES:
+        session["theme"] = theme
+    return redirect(request.referrer or url_for("dashboard"))
 
 
 @app.route("/")

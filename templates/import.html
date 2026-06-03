@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}{% if step == "preview" %}Import Preview{% else %}Import from Excel{% endif %} — BudgetBalancer{% endblock %}
+
+{% block content %}
+
+{% if step == "upload" %}
+<!-- ── Upload step ──────────────────────────────────────────────────── -->
+
+<div>
+  <h1 class="text-2xl font-bold text-pink-900">Import from Excel</h1>
+  <p class="text-pink-400 text-sm mt-0.5">Upload a spreadsheet to add transactions in bulk</p>
+</div>
+
+<!-- Format guide -->
+<div class="rounded-2xl border border-blue-100 bg-blue-50 px-6 py-5">
+  <h2 class="font-semibold text-blue-800 mb-3">Supported formats</h2>
+  <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+    <div>
+      <p class="font-medium text-blue-700">Date column names</p>
+      <p class="text-blue-600 font-mono text-xs mt-0.5">date, transaction date, trans date</p>
+    </div>
+    <div>
+      <p class="font-medium text-blue-700">Amount column names</p>
+      <p class="text-blue-600 font-mono text-xs mt-0.5">amount, value, sum, total, price, debit, credit</p>
+    </div>
+    <div>
+      <p class="font-medium text-blue-700">Category column names</p>
+      <p class="text-blue-600 font-mono text-xs mt-0.5">category, type, cat, transaction type</p>
+    </div>
+    <div>
+      <p class="font-medium text-blue-700">Note column names</p>
+      <p class="text-blue-600 font-mono text-xs mt-0.5">note, description, memo, details, narration</p>
+    </div>
+  </div>
+  <p class="text-blue-600 text-xs mt-4">If your columns have different names, you can map them manually on the next step.</p>
+</div>
+
+<!-- Upload form -->
+<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+  <div class="px-6 pt-5 pb-2 flex items-center gap-2">
+    <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center flex-shrink-0">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+      </svg>
+    </div>
+    <h2 class="font-bold text-pink-900">Choose File</h2>
+  </div>
+  <div class="px-6 pb-6">
+    <form method="POST" action="{{ url_for('import_upload') }}" enctype="multipart/form-data" class="space-y-4">
+      <div class="form-control">
+        <label class="label py-1">
+          <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Excel File</span>
+          <span class="label-text-alt text-gray-400">.xlsx or .xls</span>
+        </label>
+        <input type="file" name="file" accept=".xlsx,.xls" required
+               class="file-input file-input-bordered file-input-sm rounded-xl border-pink-200 w-full max-w-md" />
+      </div>
+      <div class="flex gap-3 pt-1">
+        <button type="submit" class="btn btn-primary btn-sm rounded-xl px-6">Upload &amp; Preview</button>
+        <a href="{{ url_for('transactions') }}" class="btn btn-ghost btn-sm rounded-xl">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% elif step == "preview" %}
+<!-- ── Preview step ─────────────────────────────────────────────────── -->
+
+<div>
+  <h1 class="text-2xl font-bold text-pink-900">Import Preview</h1>
+  <p class="text-pink-400 text-sm mt-0.5">
+    {{ total_rows }} row{{ 's' if total_rows != 1 else '' }} ready to import
+    {% if total_rows > 50 %}&nbsp;— preview shows first 50{% endif %}
+  </p>
+</div>
+
+<form method="POST" action="{{ url_for('import_confirm') }}">
+
+<!-- Column mapping -->
+<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+  <div class="px-6 pt-5 pb-2">
+    <h2 class="font-bold text-pink-900">Column Mapping</h2>
+    <p class="text-sm text-gray-400 mt-0.5">Match each field to a column in your file. Labels update in the preview table below.</p>
+  </div>
+  <div class="px-6 pb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+    {% set field_defs = [
+      ('date',     'Date',     true),
+      ('amount',   'Amount',   true),
+      ('category', 'Category', false),
+      ('note',     'Note',     false),
+    ] %}
+    {% for field, label, required in field_defs %}
+    <div class="form-control">
+      <label class="label py-1">
+        <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">{{ label }}</span>
+        {% if required %}<span class="label-text-alt text-error text-xs">required</span>{% endif %}
+      </label>
+      <select name="col_{{ field }}" id="sel_{{ field }}"
+              class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400"
+              onchange="updateHighlight()">
+        <option value="-1">— not mapped —</option>
+        {% for h in headers %}
+        <option value="{{ loop.index0 }}"
+                {{ 'selected' if detected.get(field) == loop.index0 else '' }}>
+          {{ h or '(column ' ~ loop.index0 ~ ')' }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Default category (hidden when category column is mapped) -->
+<div class="rounded-2xl border border-amber-100 bg-amber-50 px-6 py-4" id="default_cat_card">
+  <div class="flex items-start gap-3">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+    <div class="flex-1">
+      <p class="text-sm font-semibold text-amber-800">Default Category</p>
+      <p class="text-xs text-amber-700 mt-0.5">Rows without a recognized category will use this value.</p>
+      <div class="mt-3">
+        <select name="default_category"
+                class="select select-bordered select-sm rounded-xl border-amber-200 focus:border-amber-400 bg-white">
+          {% for cat in categories %}
+          <option value="{{ cat }}" {{ 'selected' if cat == 'other' else '' }}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Preview table -->
+<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+  <div class="px-6 pt-5 pb-1 flex items-center gap-2">
+    <h2 class="font-bold text-pink-900">Data Preview</h2>
+    {% if total_rows > 50 %}
+    <span class="badge badge-warning badge-sm">Showing 50 of {{ total_rows }}</span>
+    {% else %}
+    <span class="badge badge-ghost badge-sm">{{ total_rows }} row{{ 's' if total_rows != 1 else '' }}</span>
+    {% endif %}
+  </div>
+  <div class="overflow-x-auto px-2 pb-4">
+    <table class="table table-sm w-full">
+      <thead>
+        <tr class="border-b border-pink-50">
+          {% for h in headers %}
+          <th class="py-3" id="th_{{ loop.index0 }}">
+            <span class="text-xs uppercase tracking-wide text-gray-400 font-semibold">
+              {{ h or '(col ' ~ loop.index0 ~ ')' }}
+            </span>
+            <span class="block text-xs font-normal normal-case mt-0.5" id="field_label_{{ loop.index0 }}"></span>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in preview_rows %}
+        <tr class="hover:bg-pink-50/40 border-b border-pink-50/50">
+          {% for cell in row %}
+          <td class="text-sm text-gray-600 py-2 max-w-xs truncate">{{ cell or '—' }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Action buttons -->
+<div class="flex flex-wrap items-center gap-3 pb-2">
+  <button type="submit" class="btn btn-primary btn-sm rounded-xl px-8">
+    Import {{ total_rows }} Transaction{{ 's' if total_rows != 1 else '' }}
+  </button>
+  <a href="{{ url_for('import_excel') }}" class="btn btn-outline btn-sm rounded-xl border-pink-200 text-pink-700">
+    Upload Different File
+  </a>
+  <a href="{{ url_for('transactions') }}" class="btn btn-ghost btn-sm rounded-xl text-error/70 hover:bg-error/10">
+    Cancel
+  </a>
+</div>
+
+</form>
+
+<script>
+const FIELD_COLORS = {
+  date:     'text-blue-500',
+  amount:   'text-emerald-600',
+  category: 'text-purple-500',
+  note:     'text-orange-500',
+};
+const FIELD_LABELS = {
+  date: 'Date', amount: 'Amount', category: 'Category', note: 'Note',
+};
+
+function updateHighlight() {
+  // Clear all column labels
+  document.querySelectorAll('[id^="field_label_"]').forEach(el => {
+    el.textContent = '';
+    el.className = 'block text-xs font-normal normal-case mt-0.5';
+  });
+
+  // Label each mapped column in the preview table header
+  ['date', 'amount', 'category', 'note'].forEach(field => {
+    const sel = document.getElementById('sel_' + field);
+    const idx = parseInt(sel.value, 10);
+    if (idx >= 0) {
+      const lbl = document.getElementById('field_label_' + idx);
+      if (lbl) {
+        lbl.textContent = '↑ ' + FIELD_LABELS[field];
+        lbl.className = 'block text-xs font-normal normal-case mt-0.5 ' + FIELD_COLORS[field];
+      }
+    }
+  });
+
+  // Hide default-category card when a category column is mapped
+  const catIdx = parseInt(document.getElementById('sel_category').value, 10);
+  const card = document.getElementById('default_cat_card');
+  if (card) card.style.display = catIdx >= 0 ? 'none' : '';
+}
+
+updateHighlight();
+</script>
+
+{% endif %}
+{% endblock %}

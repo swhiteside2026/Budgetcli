@@ -1,7 +1,8 @@
 import csv
 import io
+import json
 import re
-from datetime import date
+from datetime import date, datetime
 from functools import wraps
 
 from flask import Flask, Response, flash, g, redirect, render_template, request, session, url_for
@@ -442,6 +443,213 @@ def delete_category_route(name: str):
         VALID_CATEGORIES.remove(name)
     flash(f'Category "{name}" removed.', "success")
     return redirect(url_for("categories"))
+
+
+# ── Excel Import ──────────────────────────────────────────────────────────────
+
+def _parse_import_date(s: str) -> date:
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d", "%m-%d-%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    raise ValueError(f"Cannot parse date: {s!r}")
+
+
+@app.route("/import")
+@login_required
+def import_excel():
+    return render_template("import.html", step="upload", categories=_all_categories())
+
+
+@app.route("/import/upload", methods=["POST"])
+@login_required
+def import_upload():
+    file = request.files.get("file")
+    if not file or not file.filename:
+        flash("No file selected.", "error")
+        return redirect(url_for("import_excel"))
+
+    fname = file.filename.lower()
+    if not (fname.endswith(".xlsx") or fname.endswith(".xls")):
+        flash("Only .xlsx and .xls files are accepted.", "error")
+        return redirect(url_for("import_excel"))
+
+    try:
+        if fname.endswith(".xlsx"):
+            import openpyxl
+
+            wb = openpyxl.load_workbook(file, read_only=True, data_only=True)
+            ws = wb.active
+
+            def _to_str(v) -> str:
+                if v is None:
+                    return ""
+                if isinstance(v, datetime):
+                    return v.date().isoformat()
+                if isinstance(v, date):
+                    return v.isoformat()
+                return str(v).strip()
+
+            string_rows = [[_to_str(c) for c in row] for row in ws.iter_rows(values_only=True)]
+        else:
+            import xlrd
+
+            wb = xlrd.open_workbook(file_contents=file.read())
+            ws = wb.sheet_by_index(0)
+
+            def _xlrd_str(cell) -> str:
+                if cell.ctype == xlrd.XL_CELL_DATE:
+                    return xlrd.xldate_as_datetime(cell.value, wb.datemode).date().isoformat()
+                if cell.ctype in (xlrd.XL_CELL_EMPTY, xlrd.XL_CELL_BLANK):
+                    return ""
+                if cell.ctype == xlrd.XL_CELL_NUMBER:
+                    v = cell.value
+                    return str(int(v)) if v == int(v) else str(v)
+                return str(cell.value).strip()
+
+            string_rows = [
+                [_xlrd_str(ws.cell(i, j)) for j in range(ws.ncols)]
+                for i in range(ws.nrows)
+            ]
+    except Exception as e:
+        flash(f"Could not read Excel file: {e}", "error")
+        return redirect(url_for("import_excel"))
+
+    if not string_rows:
+        flash("The file is empty.", "error")
+        return redirect(url_for("import_excel"))
+
+    headers = string_rows[0]
+    data_rows = [r for r in string_rows[1:] if any(c for c in r)]
+
+    if not data_rows:
+        flash("No data rows found (the file only has a header row).", "error")
+        return redirect(url_for("import_excel"))
+
+    _ALIASES: dict[str, list[str]] = {
+        "date":     ["date", "transaction date", "trans date", "txn date", "trans. date"],
+        "amount":   ["amount", "value", "sum", "total", "price", "debit", "credit"],
+        "category": ["category", "cat", "type", "transaction type", "txn type"],
+        "note":     ["note", "notes", "description", "desc", "memo", "comment", "details", "narration"],
+    }
+    detected: dict[str, int] = {}
+    for field, aliases in _ALIASES.items():
+        for i, h in enumerate(headers):
+            if h.lower().strip() in aliases and field not in detected:
+                detected[field] = i
+
+    temp_path = auth.user_data_path(session["username"]).parent / "import_temp.json"
+    temp_path.write_text(
+        json.dumps({"headers": headers, "rows": data_rows, "detected": detected}),
+        encoding="utf-8",
+    )
+
+    return redirect(url_for("import_preview"))
+
+
+@app.route("/import/preview")
+@login_required
+def import_preview():
+    temp_path = auth.user_data_path(session["username"]).parent / "import_temp.json"
+    if not temp_path.exists():
+        flash("No import in progress. Please upload a file first.", "error")
+        return redirect(url_for("import_excel"))
+
+    data = json.loads(temp_path.read_text(encoding="utf-8"))
+    return render_template(
+        "import.html",
+        step="preview",
+        headers=data["headers"],
+        preview_rows=data["rows"][:50],
+        total_rows=len(data["rows"]),
+        detected=data["detected"],
+        categories=_all_categories(),
+    )
+
+
+@app.route("/import/confirm", methods=["POST"])
+@login_required
+def import_confirm():
+    temp_path = auth.user_data_path(session["username"]).parent / "import_temp.json"
+    if not temp_path.exists():
+        flash("No import in progress.", "error")
+        return redirect(url_for("import_excel"))
+
+    data = json.loads(temp_path.read_text(encoding="utf-8"))
+    rows = data["rows"]
+
+    mapping: dict[str, int] = {}
+    for field in ("date", "amount", "category", "note"):
+        val = request.form.get(f"col_{field}", "-1")
+        try:
+            col_idx = int(val)
+            if col_idx >= 0:
+                mapping[field] = col_idx
+        except ValueError:
+            pass
+
+    if "date" not in mapping or "amount" not in mapping:
+        flash("You must map both the Date and Amount columns.", "error")
+        return redirect(url_for("import_preview"))
+
+    default_category = request.form.get("default_category", "other")
+    all_cats = _all_categories()
+    if default_category not in all_cats:
+        default_category = "other"
+
+    saved = 0
+    skipped = 0
+    for row in rows:
+        try:
+            raw_date = row[mapping["date"]].strip() if mapping["date"] < len(row) else ""
+            raw_amount = (
+                row[mapping["amount"]].strip().lstrip("$").replace(",", "")
+                if mapping["amount"] < len(row) else ""
+            )
+            raw_cat = (
+                row[mapping["category"]].strip().lower()
+                if "category" in mapping and mapping["category"] < len(row)
+                else ""
+            )
+            raw_note = (
+                row[mapping["note"]].strip()
+                if "note" in mapping and mapping["note"] < len(row)
+                else ""
+            )
+
+            if not raw_date or not raw_amount:
+                skipped += 1
+                continue
+
+            txn_date = _parse_import_date(raw_date)
+            amount = abs(float(raw_amount))
+            if amount == 0.0:
+                skipped += 1
+                continue
+
+            category = raw_cat if raw_cat in all_cats else default_category
+            g.store.add_transaction(
+                Transaction(amount=amount, category=category, date=txn_date, note=raw_note[:200])
+            )
+            saved += 1
+        except (ValueError, IndexError):
+            skipped += 1
+
+    temp_path.unlink(missing_ok=True)
+
+    if saved:
+        msg = f"Imported {saved} transaction{'s' if saved != 1 else ''}."
+        if skipped:
+            msg += f" {skipped} row{'s' if skipped != 1 else ''} skipped (invalid or empty)."
+        flash(msg, "success")
+    else:
+        flash(
+            "No transactions could be imported. Check that your file has valid date and amount columns.",
+            "error",
+        )
+
+    return redirect(url_for("transactions"))
 
 
 if __name__ == "__main__":

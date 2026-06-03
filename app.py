@@ -2,26 +2,14 @@ import csv
 import io
 import re
 from datetime import date
+from functools import wraps
 
-from flask import Flask, Response, flash, redirect, render_template, request, session, url_for
+from flask import Flask, Response, flash, g, redirect, render_template, request, session, url_for
 
+from budgetcli import auth
 from budgetcli.models import VALID_CATEGORIES, RecurringTransaction, Transaction
 from budgetcli.reports import category_breakdown, monthly_summary, overall_balance
-from budgetcli.storage import (
-    add_custom_category,
-    add_recurring,
-    add_transaction,
-    delete_transaction,
-    load_custom_categories,
-    load_limits,
-    load_recurring,
-    load_transactions,
-    remove_custom_category,
-    remove_limit,
-    save_recurring,
-    set_limit,
-    update_transaction,
-)
+from budgetcli.storage import Storage
 
 app = Flask(__name__)
 app.secret_key = "budgetcli-dev-secret"
@@ -35,16 +23,36 @@ THEMES = [
 ]
 _VALID_THEMES = {t[0] for t in THEMES}
 
+# Snapshot of the built-in categories so per-request custom category syncing
+# can reset to the base list without cross-user contamination.
+_BASE_CATEGORIES: list[str] = list(VALID_CATEGORIES)
+
+
+# ── Auth helpers ──────────────────────────────────────────────────────────────
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "username" not in session:
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
 
 @app.before_request
-def _sync_custom_categories() -> None:
-    for cat in load_custom_categories():
-        if cat not in VALID_CATEGORIES:
-            VALID_CATEGORIES.append(cat)
+def _setup_request() -> None:
+    if "username" in session:
+        g.store = Storage(auth.user_data_path(session["username"]))
+        # Reset to built-ins then add this user's custom categories so that
+        # Transaction validation sees the right set for the current user.
+        VALID_CATEGORIES[:] = _BASE_CATEGORIES
+        for cat in g.store.load_custom_categories():
+            if cat not in VALID_CATEGORIES:
+                VALID_CATEGORIES.append(cat)
 
 
 def _all_categories() -> list[str]:
-    custom = load_custom_categories()
+    custom = g.store.load_custom_categories()
     return VALID_CATEGORIES + [c for c in custom if c not in VALID_CATEGORIES]
 
 
@@ -76,16 +84,67 @@ def _budget_data(
 
 @app.context_processor
 def inject_globals() -> dict:
-    txns = load_transactions()
-    bal = overall_balance(txns)
     current_theme = session.get("theme", "cupcake")
-    return {
-        "global_balance": bal,
-        "global_balance_abs": abs(bal),
+    base: dict = {
         "current_theme": current_theme,
         "themes": THEMES,
+        "current_user": session.get("username"),
     }
+    if "username" not in session:
+        return {**base, "global_balance": 0, "global_balance_abs": 0}
+    txns = g.store.load_transactions()
+    bal = overall_balance(txns)
+    return {**base, "global_balance": bal, "global_balance_abs": abs(bal)}
 
+
+# ── Auth routes ───────────────────────────────────────────────────────────────
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if "username" in session:
+        return redirect(url_for("dashboard"))
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        if auth.verify_user(username, password):
+            session["username"] = username.lower()
+            return redirect(url_for("dashboard"))
+        flash("Invalid username or password.", "error")
+    return render_template("login.html")
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if "username" in session:
+        return redirect(url_for("dashboard"))
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        confirm = request.form.get("confirm", "")
+        err = auth.validate_username(username)
+        if err:
+            flash(err, "error")
+        elif len(password) < 8:
+            flash("Password must be at least 8 characters.", "error")
+        elif password != confirm:
+            flash("Passwords do not match.", "error")
+        elif auth.user_exists(username):
+            flash("That username is already taken.", "error")
+        else:
+            auth.create_user(username, password)
+            session["username"] = username.lower()
+            flash("Account created! Welcome to BudgetBalancer.", "success")
+            return redirect(url_for("dashboard"))
+    return render_template("register.html")
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.pop("username", None)
+    return redirect(url_for("login"))
+
+
+# ── Theme route (no login required) ──────────────────────────────────────────
 
 @app.route("/theme/set", methods=["POST"])
 def set_theme():
@@ -95,11 +154,14 @@ def set_theme():
     return redirect(request.referrer or url_for("dashboard"))
 
 
+# ── Dashboard ─────────────────────────────────────────────────────────────────
+
 @app.route("/")
+@login_required
 def dashboard() -> str:
     today = date.today()
-    transactions = load_transactions()
-    limits = load_limits()
+    transactions = g.store.load_transactions()
+    limits = g.store.load_limits()
     income, expenses, savings = monthly_summary(transactions, today.year, today.month)
     balance = overall_balance(transactions)
     budget_data = _budget_data(transactions, limits, today.year, today.month)
@@ -119,9 +181,12 @@ def dashboard() -> str:
     )
 
 
+# ── Transactions ──────────────────────────────────────────────────────────────
+
 @app.route("/transactions")
+@login_required
 def transactions() -> str:
-    all_txns = load_transactions()
+    all_txns = g.store.load_transactions()
     indexed = sorted(enumerate(all_txns), key=lambda x: x[1].date, reverse=True)
     return render_template(
         "transactions.html",
@@ -132,6 +197,7 @@ def transactions() -> str:
 
 
 @app.route("/transactions/add", methods=["POST"])
+@login_required
 def add_transaction_route():
     try:
         txn = Transaction(
@@ -140,7 +206,7 @@ def add_transaction_route():
             date=request.form["date"],
             note=request.form.get("note", ""),
         )
-        add_transaction(txn)
+        g.store.add_transaction(txn)
         flash("Transaction added.", "success")
     except (ValueError, KeyError) as e:
         flash(f"Error: {e}", "error")
@@ -148,9 +214,10 @@ def add_transaction_route():
 
 
 @app.route("/transactions/<int:idx>/delete", methods=["POST"])
+@login_required
 def delete_transaction_route(idx: int):
     try:
-        delete_transaction(idx)
+        g.store.delete_transaction(idx)
         flash("Transaction deleted.", "success")
     except IndexError:
         flash("Transaction not found.", "error")
@@ -158,6 +225,7 @@ def delete_transaction_route(idx: int):
 
 
 @app.route("/transactions/<int:idx>/edit", methods=["POST"])
+@login_required
 def edit_transaction_route(idx: int):
     try:
         txn = Transaction(
@@ -166,18 +234,21 @@ def edit_transaction_route(idx: int):
             date=request.form["date"],
             note=request.form.get("note", ""),
         )
-        update_transaction(idx, txn)
+        g.store.update_transaction(idx, txn)
         flash("Transaction updated.", "success")
     except (ValueError, KeyError) as e:
         flash(f"Error: {e}", "error")
     return redirect(url_for("transactions"))
 
 
+# ── Budget limits ─────────────────────────────────────────────────────────────
+
 @app.route("/limits")
+@login_required
 def limits() -> str:
     today = date.today()
-    current_limits = load_limits()
-    transactions = load_transactions()
+    current_limits = g.store.load_limits()
+    transactions = g.store.load_transactions()
     budget_data = _budget_data(transactions, current_limits, today.year, today.month)
     available = [c for c in _all_categories() if c != "income"]
     return render_template(
@@ -190,13 +261,14 @@ def limits() -> str:
 
 
 @app.route("/limits/set", methods=["POST"])
+@login_required
 def set_limit_route():
     try:
         category = request.form["category"]
         amount = float(request.form["amount"])
         if amount <= 0:
             raise ValueError("Amount must be greater than zero")
-        set_limit(category, amount)
+        g.store.set_limit(category, amount)
         flash(f"Limit set: {category} → ${amount:.2f}/month.", "success")
     except (ValueError, KeyError) as e:
         flash(f"Error: {e}", "error")
@@ -204,16 +276,20 @@ def set_limit_route():
 
 
 @app.route("/limits/<category>/delete", methods=["POST"])
+@login_required
 def delete_limit_route(category: str):
-    remove_limit(category)
+    g.store.remove_limit(category)
     flash(f"Limit removed for {category}.", "success")
     return redirect(url_for("limits"))
 
 
+# ── Recurring ─────────────────────────────────────────────────────────────────
+
 @app.route("/recurring")
+@login_required
 def recurring() -> str:
     today = date.today()
-    rec_list = load_recurring()
+    rec_list = g.store.load_recurring()
     indexed = [(i, r, r.is_due(today)) for i, r in enumerate(rec_list)]
     due_count = sum(1 for _, _, due in indexed if due)
     return render_template(
@@ -226,6 +302,7 @@ def recurring() -> str:
 
 
 @app.route("/recurring/add", methods=["POST"])
+@login_required
 def add_recurring_route():
     try:
         rt = RecurringTransaction(
@@ -234,7 +311,7 @@ def add_recurring_route():
             frequency="monthly",
             note=request.form.get("note", ""),
         )
-        add_recurring(rt)
+        g.store.add_recurring(rt)
         flash("Recurring transaction added.", "success")
     except (ValueError, KeyError) as e:
         flash(f"Error: {e}", "error")
@@ -242,18 +319,19 @@ def add_recurring_route():
 
 
 @app.route("/recurring/apply", methods=["POST"])
+@login_required
 def apply_recurring_route():
     today = date.today()
-    rec_list = load_recurring()
+    rec_list = g.store.load_recurring()
     applied = 0
     for rt in rec_list:
         if rt.is_due(today):
-            add_transaction(
+            g.store.add_transaction(
                 Transaction(amount=rt.amount, category=rt.category, date=today, note=rt.note)
             )
             rt.last_applied = today
             applied += 1
-    save_recurring(rec_list)
+    g.store.save_recurring(rec_list)
     label = "success" if applied else "info"
     plural = "s" if applied != 1 else ""
     flash(f"Applied {applied} recurring transaction{plural}.", label)
@@ -261,18 +339,22 @@ def apply_recurring_route():
 
 
 @app.route("/recurring/<int:idx>/delete", methods=["POST"])
+@login_required
 def delete_recurring_route(idx: int):
-    rec_list = load_recurring()
+    rec_list = g.store.load_recurring()
     if 0 <= idx < len(rec_list):
         rec_list.pop(idx)
-        save_recurring(rec_list)
+        g.store.save_recurring(rec_list)
         flash("Recurring transaction removed.", "success")
     else:
         flash("Not found.", "error")
     return redirect(url_for("recurring"))
 
 
+# ── Export ────────────────────────────────────────────────────────────────────
+
 @app.route("/export")
+@login_required
 def export() -> str:
     today = date.today()
     return render_template(
@@ -283,6 +365,7 @@ def export() -> str:
 
 
 @app.route("/export/download")
+@login_required
 def export_download():
     from_str = request.args.get("from_date", "")
     to_str = request.args.get("to_date", "")
@@ -293,7 +376,7 @@ def export_download():
         flash("Invalid date format.", "error")
         return redirect(url_for("export"))
 
-    txns = load_transactions()
+    txns = g.store.load_transactions()
     if from_date:
         txns = [t for t in txns if t.date >= from_date]
     if to_date:
@@ -313,11 +396,14 @@ def export_download():
     )
 
 
+# ── Categories ────────────────────────────────────────────────────────────────
+
 @app.route("/categories")
+@login_required
 def categories() -> str:
-    custom = load_custom_categories()
-    txns = load_transactions()
-    rec = load_recurring()
+    custom = g.store.load_custom_categories()
+    txns = g.store.load_transactions()
+    rec = g.store.load_recurring()
     used: set[str] = {t.category for t in txns} | {r.category for r in rec}
     return render_template(
         "categories.html",
@@ -328,6 +414,7 @@ def categories() -> str:
 
 
 @app.route("/categories/add", methods=["POST"])
+@login_required
 def add_category_route():
     raw = request.form.get("name", "").strip().lower().replace(" ", "-")
     name = re.sub(r"[^a-z0-9-]", "", raw)
@@ -337,18 +424,20 @@ def add_category_route():
     if name in _all_categories():
         flash(f'Category "{name}" already exists.', "error")
         return redirect(url_for("categories"))
-    add_custom_category(name)
+    g.store.add_custom_category(name)
     VALID_CATEGORIES.append(name)
     flash(f'Category "{name}" added.', "success")
     return redirect(url_for("categories"))
 
 
 @app.route("/categories/<name>/delete", methods=["POST"])
+@login_required
 def delete_category_route(name: str):
-    if name in VALID_CATEGORIES and name not in load_custom_categories():
+    custom = g.store.load_custom_categories()
+    if name not in custom:
         flash(f'"{name}" is a built-in category and cannot be deleted.', "error")
         return redirect(url_for("categories"))
-    remove_custom_category(name)
+    g.store.remove_custom_category(name)
     if name in VALID_CATEGORIES:
         VALID_CATEGORIES.remove(name)
     flash(f'Category "{name}" removed.', "success")

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html data-theme="{{ current_theme }}" lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — BudgetBalancer</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.css" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-base-200 min-h-screen flex items-center justify-center px-4">
+
+  <div class="card w-full max-w-sm bg-base-100 shadow-xl">
+    <div class="card-body gap-0">
+
+      <!-- Brand -->
+      <div class="text-center mb-6">
+        <div class="w-12 h-12 rounded-2xl bg-primary mx-auto flex items-center justify-center mb-3">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary-content" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 10v1m-3-5h6" />
+          </svg>
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight">BudgetBalancer</h1>
+        <p class="text-sm text-base-content/50 mt-1">Sign in to your account</p>
+      </div>
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=True) %}
+      {% if messages %}
+      <div class="space-y-2 mb-4">
+        {% for cat, msg in messages %}
+        <div role="alert" class="alert {{ 'alert-success' if cat == 'success' else 'alert-error' if cat == 'error' else 'alert-info' }} py-2 text-sm">
+          <span>{{ msg }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+
+      <!-- Form -->
+      <form method="POST" class="space-y-4">
+        <label class="form-control w-full">
+          <div class="label pb-1"><span class="label-text font-medium">Username</span></div>
+          <input type="text" name="username" autocomplete="username"
+                 class="input input-bordered w-full" required autofocus />
+        </label>
+
+        <label class="form-control w-full">
+          <div class="label pb-1"><span class="label-text font-medium">Password</span></div>
+          <input type="password" name="password" autocomplete="current-password"
+                 class="input input-bordered w-full" required />
+        </label>
+
+        <button type="submit" class="btn btn-primary w-full mt-2">Sign In</button>
+      </form>
+
+      <p class="text-center text-sm mt-5 text-base-content/50">
+        No account yet?
+        <a href="{{ url_for('register') }}" class="link link-primary font-medium">Create one</a>
+      </p>
+
+    </div>
+  </div>
+
+</body>
+</html>

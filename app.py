@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import os
 import re
 from datetime import date, datetime
 from functools import wraps
@@ -8,6 +9,7 @@ from functools import wraps
 from flask import Flask, Response, flash, g, redirect, render_template, request, session, url_for
 
 from budgetcli import auth
+from budgetcli.mailer import send_password_reset
 from budgetcli.models import VALID_CATEGORIES, RecurringTransaction, Transaction
 from budgetcli.reports import category_breakdown, monthly_summary, overall_balance
 from budgetcli.storage import Storage
@@ -140,6 +142,7 @@ def register():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         confirm = request.form.get("confirm", "")
+        email = request.form.get("email", "").strip()
         err = auth.validate_username(username)
         if err:
             flash(err, "error")
@@ -147,11 +150,15 @@ def register():
             flash("Password must be at least 8 characters.", "error")
         elif password != confirm:
             flash("Passwords do not match.", "error")
+        elif email and not _valid_email(email):
+            flash("Please enter a valid email address.", "error")
         elif auth.user_exists(username):
             flash("That username is already taken.", "error")
         else:
             auth.create_user(username, password)
             session["username"] = username.lower()
+            if email:
+                Storage(auth.user_data_path(username.lower())).save_profile({"email": email})
             flash("Account created! Welcome to BudgetBalancer.", "success")
             return redirect(url_for("dashboard"))
     return render_template("register.html")
@@ -161,6 +168,65 @@ def register():
 def logout():
     session.pop("username", None)
     return redirect(url_for("login"))
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if "username" in session:
+        return redirect(url_for("dashboard"))
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        username = auth.find_user_by_email(email)
+        if username:
+            token, expiry_iso = auth.generate_reset_token()
+            Storage(auth.user_data_path(username)).save_reset_token(token, expiry_iso)
+            app_url = os.environ.get("APP_URL", request.url_root.rstrip("/"))
+            reset_url = f"{app_url}/reset-password?token={token}"
+            try:
+                send_password_reset(email, reset_url)
+            except Exception:
+                pass  # Never reveal send failure — message stays neutral
+        # Always show the same message to avoid revealing registered emails
+        flash(
+            "If an account exists for that email, a reset link has been sent.",
+            "info",
+        )
+        return redirect(url_for("forgot_password"))
+    return render_template("forgot_password.html")
+
+
+@app.route("/reset-password", methods=["GET", "POST"])
+def reset_password():
+    if "username" in session:
+        return redirect(url_for("dashboard"))
+    if request.method == "POST":
+        token = request.form.get("token", "")
+        username = auth.find_user_by_reset_token(token)
+        if not username:
+            flash("This reset link is invalid or has expired.", "error")
+            return redirect(url_for("forgot_password"))
+        new_pw = request.form.get("new_password", "")
+        confirm_pw = request.form.get("confirm_password", "")
+        if len(new_pw) < 8:
+            return render_template(
+                "reset_password.html", token=token,
+                error="Password must be at least 8 characters.",
+            )
+        if new_pw != confirm_pw:
+            return render_template(
+                "reset_password.html", token=token,
+                error="Passwords do not match.",
+            )
+        auth.change_password(username, new_pw)
+        Storage(auth.user_data_path(username)).clear_reset_token()
+        flash("Password reset successfully. You can now sign in.", "success")
+        return redirect(url_for("login"))
+    # GET: validate token before showing the form
+    token = request.args.get("token", "")
+    username = auth.find_user_by_reset_token(token)
+    if not username:
+        return render_template("reset_password.html", token=None, error="invalid")
+    return render_template("reset_password.html", token=token, error=None)
 
 
 # ── Theme route (no login required) ──────────────────────────────────────────

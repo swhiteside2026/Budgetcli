@@ -250,6 +250,18 @@ class Storage:
         raw.update(profile)
         self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
 
+    def save_reset_token(self, token: str, expiry_iso: str) -> None:
+        raw = _read_raw(self._path)
+        raw["reset_token"] = token
+        raw["reset_token_expiry"] = expiry_iso
+        self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
+    def clear_reset_token(self) -> None:
+        raw = _read_raw(self._path)
+        raw.pop("reset_token", None)
+        raw.pop("reset_token_expiry", None)
+        self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
     def load_alert_threshold(self) -> int:
         return int(_read_raw(self._path).get("alert_threshold", 80))
 

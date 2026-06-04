@@ -1,5 +1,7 @@
 import json
 import re
+import secrets
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -54,3 +56,58 @@ def change_password(username: str, new_password: str) -> None:
 
 def user_data_path(username: str) -> Path:
     return _DATA_ROOT / "users" / username.lower() / "ledger.json"
+
+
+def find_user_by_email(email: str) -> str | None:
+    """Return the username whose ledger.json has a matching email, or None."""
+    if not email:
+        return None
+    users_dir = _DATA_ROOT / "users"
+    if not users_dir.exists():
+        return None
+    target = email.strip().lower()
+    for user_dir in users_dir.iterdir():
+        if not user_dir.is_dir():
+            continue
+        ledger = user_dir / "ledger.json"
+        if not ledger.exists():
+            continue
+        try:
+            data = json.loads(ledger.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and data.get("email", "").lower() == target:
+                return user_dir.name
+        except (json.JSONDecodeError, OSError):
+            continue
+    return None
+
+
+def find_user_by_reset_token(token: str) -> str | None:
+    """Return the username whose ledger.json has this unexpired token, or None."""
+    if not token:
+        return None
+    users_dir = _DATA_ROOT / "users"
+    if not users_dir.exists():
+        return None
+    now = datetime.utcnow()
+    for user_dir in users_dir.iterdir():
+        if not user_dir.is_dir():
+            continue
+        ledger = user_dir / "ledger.json"
+        if not ledger.exists():
+            continue
+        try:
+            data = json.loads(ledger.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and data.get("reset_token") == token:
+                expiry_str = data.get("reset_token_expiry", "")
+                if expiry_str and now < datetime.fromisoformat(expiry_str):
+                    return user_dir.name
+        except (json.JSONDecodeError, OSError, ValueError):
+            continue
+    return None
+
+
+def generate_reset_token() -> tuple[str, str]:
+    """Return (token, expiry_iso) — token valid for 30 minutes (UTC)."""
+    token = secrets.token_urlsafe(32)
+    expiry_iso = (datetime.utcnow() + timedelta(minutes=30)).isoformat()
+    return token, expiry_iso

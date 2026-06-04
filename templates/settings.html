@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Settings — BudgetBalancer{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div>
+  <h1 class="text-2xl font-bold text-pink-900">Settings</h1>
+  <p class="text-pink-400 text-sm mt-0.5">Preferences for your BudgetBalancer account</p>
+</div>
+
+<!-- ── Budget Alert Threshold ──────────────────────────────────── -->
+<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+  <div class="px-6 pt-5 pb-2 flex items-center gap-2">
+    <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.437L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+      </svg>
+    </div>
+    <h2 class="font-bold text-pink-900">Budget Alert Threshold</h2>
+  </div>
+  <div class="px-6 pb-6">
+    <p class="text-sm text-gray-500 mb-5">
+      Show a <span class="badge badge-warning badge-sm font-medium">NEAR</span> warning
+      when monthly spending reaches this percentage of a budget limit.
+      The <span class="badge badge-error badge-sm font-medium">OVER</span> warning
+      always triggers at 100%.
+    </p>
+
+    <form method="POST" action="{{ url_for('save_alert_threshold_route') }}" class="space-y-5 max-w-sm">
+      <div>
+        <label class="label py-1">
+          <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Warn me when spending reaches</span>
+        </label>
+
+        <!-- Slider row -->
+        <div class="flex items-center gap-3 mb-3">
+          <span class="text-xs text-gray-400 w-5 shrink-0">1%</span>
+          <input type="range" id="threshold_slider"
+                 min="1" max="99" step="1" value="{{ alert_threshold }}"
+                 class="range range-primary range-sm flex-1"
+                 oninput="syncThreshold(this.value)" />
+          <span class="text-xs text-gray-400 w-8 shrink-0">99%</span>
+        </div>
+
+        <!-- Number input row -->
+        <div class="flex items-center gap-3">
+          <label class="input input-bordered input-sm flex items-center gap-1 rounded-xl border-pink-200 focus-within:border-pink-400 w-28">
+            <input type="number" id="threshold_number" name="alert_threshold"
+                   min="1" max="99" step="1" value="{{ alert_threshold }}"
+                   class="grow bg-transparent w-12 text-center font-semibold"
+                   oninput="syncThreshold(this.value)" />
+            <span class="text-gray-300 text-xs font-normal">%</span>
+          </label>
+          <span class="text-sm text-gray-500">of any monthly limit</span>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-sm rounded-xl px-6">Save</button>
+    </form>
+  </div>
+</div>
+
+<script>
+function syncThreshold(val) {
+  const n = parseInt(val);
+  if (isNaN(n)) return;
+  const v = Math.min(99, Math.max(1, n));
+  document.getElementById('threshold_slider').value = v;
+  document.getElementById('threshold_number').value = v;
+}
+</script>
+
+{% endblock %}

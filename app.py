@@ -62,6 +62,7 @@ def _budget_data(
     limits: dict[str, float],
     year: int,
     month: int,
+    near_threshold: float = 0.8,
 ) -> list[dict]:
     spent = category_breakdown(transactions, year, month)
     result = []
@@ -69,7 +70,7 @@ def _budget_data(
         cat_spent = spent.get(cat, 0.0)
         pct = min(cat_spent / limit * 100, 100) if limit > 0 else 0
         over = cat_spent > limit
-        near = not over and cat_spent >= limit * 0.8
+        near = not over and cat_spent >= limit * near_threshold
         result.append({
             "category": cat,
             "limit": limit,
@@ -165,7 +166,8 @@ def dashboard() -> str:
     limits = g.store.load_limits()
     income, expenses, savings = monthly_summary(transactions, today.year, today.month)
     balance = overall_balance(transactions)
-    budget_data = _budget_data(transactions, limits, today.year, today.month)
+    near_threshold = g.store.load_alert_threshold() / 100
+    budget_data = _budget_data(transactions, limits, today.year, today.month, near_threshold)
     recent = sorted(transactions, key=lambda t: t.date, reverse=True)[:10]
     return render_template(
         "dashboard.html",
@@ -273,7 +275,8 @@ def limits() -> str:
     today = date.today()
     current_limits = g.store.load_limits()
     transactions = g.store.load_transactions()
-    budget_data = _budget_data(transactions, current_limits, today.year, today.month)
+    near_threshold = g.store.load_alert_threshold() / 100
+    budget_data = _budget_data(transactions, current_limits, today.year, today.month, near_threshold)
     available = [c for c in _all_categories() if c != "income"]
     return render_template(
         "limits.html",
@@ -305,6 +308,28 @@ def delete_limit_route(category: str):
     g.store.remove_limit(category)
     flash(f"Limit removed for {category}.", "success")
     return redirect(url_for("limits"))
+
+
+# ── Settings ──────────────────────────────────────────────────────────────────
+
+@app.route("/settings")
+@login_required
+def settings() -> str:
+    return render_template("settings.html", alert_threshold=g.store.load_alert_threshold())
+
+
+@app.route("/settings/alert-threshold", methods=["POST"])
+@login_required
+def save_alert_threshold_route():
+    try:
+        value = int(request.form["alert_threshold"])
+        if not 1 <= value <= 99:
+            raise ValueError("Threshold must be between 1 and 99.")
+        g.store.save_alert_threshold(value)
+        flash(f"Alert threshold updated to {value}%.", "success")
+    except (ValueError, KeyError) as e:
+        flash(f"Error: {e}", "error")
+    return redirect(url_for("settings"))
 
 
 # ── Recurring ─────────────────────────────────────────────────────────────────

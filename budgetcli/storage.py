@@ -235,3 +235,11 @@ class Storage:
             cats.remove(name)
         raw["custom_categories"] = cats
         self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
+    def load_alert_threshold(self) -> int:
+        return int(_read_raw(self._path).get("alert_threshold", 80))
+
+    def save_alert_threshold(self, threshold: int) -> None:
+        raw = _read_raw(self._path)
+        raw["alert_threshold"] = threshold
+        self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")

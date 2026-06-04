@@ -76,6 +76,11 @@
     <table class="table table-sm w-full">
       <thead>
         <tr class="text-xs uppercase tracking-wide text-gray-400 border-b border-pink-50">
+          <th class="w-10 py-3 pl-3">
+            <input type="checkbox" id="select_all"
+                   class="checkbox checkbox-xs checkbox-primary rounded"
+                   onchange="toggleSelectAll(this)" />
+          </th>
           <th class="font-semibold py-3">Date</th>
           <th class="font-semibold">Category</th>
           <th class="font-semibold">Amount</th>
@@ -85,7 +90,13 @@
       </thead>
       <tbody>
         {% for idx, t in indexed_transactions %}
-        <tr class="hover:bg-pink-50/40 border-b border-pink-50/50 group">
+        <tr class="hover:bg-pink-50/40 border-b border-pink-50/50 group" id="row_{{ idx }}">
+          <td class="pl-3 py-3">
+            <input type="checkbox"
+                   class="checkbox checkbox-xs checkbox-primary rounded row-cb"
+                   value="{{ idx }}"
+                   onchange="updateBulkBar()" />
+          </td>
           <td class="text-sm text-gray-400 whitespace-nowrap py-3">{{ t.date.strftime("%b %d, %Y") }}</td>
           <td>
             <span class="badge {{ cat_badge.get(t.category, 'badge-ghost') }} badge-sm font-medium">{{ t.category }}</span>
@@ -124,6 +135,30 @@
   </div>
   {% endif %}
 
+</div>
+
+<!-- ── Floating bulk-action pill ───────────────────────────────── -->
+<div id="bulk_bar"
+     class="fixed bottom-6 z-50 flex items-center gap-3 bg-white border border-pink-100 rounded-full shadow-xl px-5 py-2.5"
+     style="left:50%; transform:translateX(-50%) translateY(1rem); opacity:0; pointer-events:none; transition:transform 0.2s ease-out, opacity 0.2s ease-out;"
+     aria-live="polite">
+  <span class="flex items-center gap-2 text-sm font-semibold text-pink-900">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+    </svg>
+    <span id="bulk_count">0</span> selected
+  </span>
+  <div class="w-px h-5 bg-pink-100"></div>
+  <button type="button"
+          onclick="clearSelection()"
+          class="btn btn-ghost btn-sm rounded-full text-gray-400 hover:text-gray-600 px-3 min-h-0 h-8">
+    Clear
+  </button>
+  <button type="button"
+          onclick="openBulkDelete()"
+          class="btn btn-error btn-sm rounded-full px-4 min-h-0 h-8">
+    Delete Selected
+  </button>
 </div>
 
 <!-- Edit modal -->
@@ -165,7 +200,7 @@
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
 
-<!-- Delete confirmation modal -->
+<!-- Delete confirmation modal (single row) -->
 <dialog id="delete_modal" class="modal">
   <div class="modal-box rounded-2xl border border-pink-100 shadow-xl">
     <h3 class="font-bold text-lg text-pink-900">Delete this transaction?</h3>
@@ -176,6 +211,25 @@
     <div class="modal-action gap-2">
       <button class="btn btn-ghost rounded-xl" onclick="document.getElementById('delete_modal').close()">Cancel</button>
       <form method="POST" id="delete_form" class="inline">
+        <button type="submit" class="btn btn-error rounded-xl px-8">Delete</button>
+      </form>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Bulk delete confirmation modal -->
+<dialog id="bulk_delete_modal" class="modal">
+  <div class="modal-box rounded-2xl border border-pink-100 shadow-xl">
+    <h3 class="font-bold text-lg text-pink-900">
+      Delete <span id="bulk_modal_count">0</span> transaction(s)?
+    </h3>
+    <p class="text-sm text-gray-500 mt-2">This can't be undone.</p>
+    <div class="modal-action gap-2 mt-4">
+      <button type="button" class="btn btn-ghost rounded-xl"
+              onclick="document.getElementById('bulk_delete_modal').close()">Cancel</button>
+      <form method="POST" action="{{ url_for('bulk_delete_transactions_route') }}"
+            id="bulk_delete_form" class="inline">
         <button type="submit" class="btn btn-error rounded-xl px-8">Delete</button>
       </form>
     </div>
@@ -194,11 +248,81 @@ function openEdit(btn) {
   form.querySelector('[name=note]').value = d.note;
   document.getElementById('edit_modal').showModal();
 }
+
 function openDelete(btn) {
   const d = btn.dataset;
   document.getElementById('delete_form').action = `/transactions/${d.idx}/delete`;
   document.getElementById('delete_label').textContent = d.label;
   document.getElementById('delete_modal').showModal();
+}
+
+function updateBulkBar() {
+  const allCbs = document.querySelectorAll('.row-cb');
+  const checked = document.querySelectorAll('.row-cb:checked');
+  const n = checked.length;
+  const bar = document.getElementById('bulk_bar');
+  const selectAll = document.getElementById('select_all');
+
+  document.getElementById('bulk_count').textContent = n;
+
+  if (n > 0) {
+    bar.style.transform = 'translateX(-50%) translateY(0)';
+    bar.style.opacity = '1';
+    bar.style.pointerEvents = 'auto';
+  } else {
+    bar.style.transform = 'translateX(-50%) translateY(1rem)';
+    bar.style.opacity = '0';
+    bar.style.pointerEvents = 'none';
+  }
+
+  if (selectAll) {
+    if (n === 0) {
+      selectAll.checked = false;
+      selectAll.indeterminate = false;
+    } else if (n === allCbs.length) {
+      selectAll.checked = true;
+      selectAll.indeterminate = false;
+    } else {
+      selectAll.checked = false;
+      selectAll.indeterminate = true;
+    }
+  }
+
+  allCbs.forEach(cb => {
+    cb.closest('tr').classList.toggle('bg-pink-50/70', cb.checked);
+  });
+}
+
+function toggleSelectAll(cb) {
+  document.querySelectorAll('.row-cb').forEach(el => { el.checked = cb.checked; });
+  updateBulkBar();
+}
+
+function clearSelection() {
+  document.querySelectorAll('.row-cb').forEach(el => { el.checked = false; });
+  const selectAll = document.getElementById('select_all');
+  if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
+  updateBulkBar();
+}
+
+function openBulkDelete() {
+  const checked = document.querySelectorAll('.row-cb:checked');
+  const n = checked.length;
+  if (!n) return;
+
+  document.getElementById('bulk_modal_count').textContent = n;
+
+  const form = document.getElementById('bulk_delete_form');
+  form.querySelectorAll('input[name="ids"]').forEach(el => el.remove());
+  checked.forEach(cb => {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'ids';
+    input.value = cb.value;
+    form.appendChild(input);
+  });
+
+  document.getElementById('bulk_delete_modal').showModal();
 }
 </script>
 

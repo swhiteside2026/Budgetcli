@@ -225,6 +225,29 @@ def delete_transaction_route(idx: int):
     return redirect(url_for("transactions"))
 
 
+@app.route("/transactions/bulk-delete", methods=["POST"])
+@login_required
+def bulk_delete_transactions_route():
+    raw_ids = request.form.getlist("ids")
+    try:
+        indices = sorted({int(i) for i in raw_ids if i.strip()}, reverse=True)
+    except ValueError:
+        flash("Invalid selection.", "error")
+        return redirect(url_for("transactions"))
+    if not indices:
+        flash("No transactions selected.", "error")
+        return redirect(url_for("transactions"))
+    deleted = 0
+    for idx in indices:
+        try:
+            g.store.delete_transaction(idx)
+            deleted += 1
+        except IndexError:
+            pass
+    flash(f"Deleted {deleted} transaction{'s' if deleted != 1 else ''}.", "success")
+    return redirect(url_for("transactions"))
+
+
 @app.route("/transactions/<int:idx>/edit", methods=["POST"])
 @login_required
 def edit_transaction_route(idx: int):

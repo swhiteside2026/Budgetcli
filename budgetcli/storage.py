@@ -236,6 +236,20 @@ class Storage:
         raw["custom_categories"] = cats
         self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
 
+    def load_profile(self) -> dict:
+        raw = _read_raw(self._path)
+        return {
+            "display_name": raw.get("display_name", ""),
+            "email": raw.get("email", ""),
+            "phone": raw.get("phone", ""),
+            "default_theme": raw.get("default_theme", ""),
+        }
+
+    def save_profile(self, profile: dict) -> None:
+        raw = _read_raw(self._path)
+        raw.update(profile)
+        self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
     def load_alert_threshold(self) -> int:
         return int(_read_raw(self._path).get("alert_threshold", 80))
 

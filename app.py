@@ -50,6 +50,23 @@ def _setup_request() -> None:
         for cat in g.store.load_custom_categories():
             if cat not in VALID_CATEGORIES:
                 VALID_CATEGORIES.append(cat)
+        # Apply stored theme preference on the first request of a new session.
+        if "theme" not in session:
+            stored = g.store.load_profile().get("default_theme", "")
+            if stored in _VALID_THEMES:
+                session["theme"] = stored
+
+
+_EMAIL_RE = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
+
+
+def _valid_email(email: str) -> bool:
+    return bool(_EMAIL_RE.match(email))
+
+
+def _valid_phone(phone: str) -> bool:
+    digits = re.sub(r'\D', '', phone)
+    return 7 <= len(digits) <= 15
 
 
 def _all_categories() -> list[str]:
@@ -315,7 +332,62 @@ def delete_limit_route(category: str):
 @app.route("/settings")
 @login_required
 def settings() -> str:
-    return render_template("settings.html", alert_threshold=g.store.load_alert_threshold())
+    return render_template(
+        "settings.html",
+        alert_threshold=g.store.load_alert_threshold(),
+        profile=g.store.load_profile(),
+    )
+
+
+@app.route("/settings/profile", methods=["POST"])
+@login_required
+def save_profile_route():
+    display_name = request.form.get("display_name", "").strip()
+    email = request.form.get("email", "").strip()
+    phone = request.form.get("phone", "").strip()
+    if email and not _valid_email(email):
+        flash("Please enter a valid email address.", "error")
+        return redirect(url_for("settings"))
+    if phone and not _valid_phone(phone):
+        flash("Please enter a valid phone number (7–15 digits).", "error")
+        return redirect(url_for("settings"))
+    g.store.save_profile({"display_name": display_name, "email": email, "phone": phone})
+    flash("Profile updated.", "success")
+    return redirect(url_for("settings"))
+
+
+@app.route("/settings/theme-preference", methods=["POST"])
+@login_required
+def save_theme_preference_route():
+    theme = request.form.get("theme", "cupcake")
+    if theme not in _VALID_THEMES:
+        flash("Invalid theme selection.", "error")
+        return redirect(url_for("settings"))
+    session["theme"] = theme
+    g.store.save_profile({"default_theme": theme})
+    flash("Default theme updated.", "success")
+    return redirect(url_for("settings"))
+
+
+@app.route("/settings/password", methods=["POST"])
+@login_required
+def change_password_route():
+    username = session["username"]
+    current_pw = request.form.get("current_password", "")
+    new_pw = request.form.get("new_password", "")
+    confirm_pw = request.form.get("confirm_password", "")
+    if not auth.verify_user(username, current_pw):
+        flash("Current password is incorrect.", "error")
+        return redirect(url_for("settings"))
+    if len(new_pw) < 8:
+        flash("New password must be at least 8 characters.", "error")
+        return redirect(url_for("settings"))
+    if new_pw != confirm_pw:
+        flash("New passwords do not match.", "error")
+        return redirect(url_for("settings"))
+    auth.change_password(username, new_pw)
+    flash("Password changed successfully.", "success")
+    return redirect(url_for("settings"))
 
 
 @app.route("/settings/alert-threshold", methods=["POST"])

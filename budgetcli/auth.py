@@ -46,5 +46,11 @@ def verify_user(username: str, password: str) -> bool:
     return check_password_hash(accounts[key], password)
 
 
+def change_password(username: str, new_password: str) -> None:
+    accounts = _load_accounts()
+    accounts[username.lower()] = generate_password_hash(new_password)
+    _save_accounts(accounts)
+
+
 def user_data_path(username: str) -> Path:
     return _DATA_ROOT / "users" / username.lower() / "ledger.json"

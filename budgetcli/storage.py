@@ -237,6 +237,57 @@ class Storage:
         raw["custom_categories"] = cats
         self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
 
+    def load_suppressed_categories(self) -> list[str]:
+        """Return built-in category names that have been renamed and should be hidden."""
+        return _read_raw(self._path).get("suppressed_categories", [])
+
+    def rename_category(self, old_name: str, new_name: str, *, suppress_old: bool = False) -> int:
+        """Cascade-rename a category across all data in a single atomic read/write.
+
+        suppress_old=True when the old name is a built-in: adds it to the
+        suppressed list so _all_categories() filters it out after a restart,
+        and ensures new_name is stored in custom_categories for persistence.
+
+        Returns the number of transactions whose category was updated.
+        """
+        old_lower = old_name.lower()
+        raw = _read_raw(self._path)
+
+        # transactions
+        count = 0
+        for t in raw.get("transactions", []):
+            if t.get("category", "").lower() == old_lower:
+                t["category"] = new_name
+                count += 1
+
+        # limits — rebuild dict preserving insertion order for other keys
+        raw["limits"] = {
+            (new_name if k.lower() == old_lower else k): v
+            for k, v in raw.get("limits", {}).items()
+        }
+
+        # recurring transactions
+        for r in raw.get("recurring", []):
+            if r.get("category", "").lower() == old_lower:
+                r["category"] = new_name
+
+        # custom_categories list
+        cats: list[str] = raw.get("custom_categories", [])
+        raw["custom_categories"] = [new_name if c.lower() == old_lower else c for c in cats]
+
+        if suppress_old:
+            suppressed: list[str] = raw.get("suppressed_categories", [])
+            if old_lower not in {s.lower() for s in suppressed}:
+                suppressed.append(old_name)
+            raw["suppressed_categories"] = suppressed
+            # Ensure new_name persists in custom after a server restart
+            new_cats: list[str] = raw["custom_categories"]
+            if new_name.lower() not in {c.lower() for c in new_cats}:
+                new_cats.append(new_name)
+
+        self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+        return count
+
     def load_profile(self) -> dict:
         raw = _read_raw(self._path)
         return {

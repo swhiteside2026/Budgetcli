@@ -606,7 +606,8 @@ def add_recurring_route():
         flash("Recurring transaction added.", "success")
     except (ValueError, KeyError) as e:
         flash(f"Error: {e}", "error")
-    return redirect(url_for("recurring"))
+    next_page = request.form.get("next", "")
+    return redirect(url_for("transactions") if next_page == "transactions" else url_for("recurring"))
 
 
 @app.route("/recurring/apply", methods=["POST"])

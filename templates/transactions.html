@@ -190,7 +190,15 @@
           <td class="font-mono font-semibold {{ 'text-emerald-600' if t.is_income else 'text-red-500' }} whitespace-nowrap">
             {{ "+" if t.is_income else "−" }}${{ "%.2f"|format(t.amount) }}
           </td>
-          <td class="text-sm text-gray-400 max-w-xs truncate">{{ t.note or "—" }}</td>
+          <td class="text-sm text-gray-400 max-w-xs truncate">
+            {% if t.source == "recurring" %}
+            <span class="inline-flex items-center mr-1.5 text-gray-300 flex-shrink-0" title="Recurring">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </span>
+            {% endif %}{{ t.note or "—" }}
+          </td>
           <td class="text-right whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               class="btn btn-ghost btn-xs rounded-lg text-pink-400 hover:text-pink-600 hover:bg-pink-50"
@@ -200,6 +208,14 @@
               data-date="{{ t.date.isoformat() }}"
               data-note="{{ t.note | e }}"
               onclick="openEdit(this)">Edit</button>
+            {% if t.source != "recurring" %}
+            <button
+              class="btn btn-ghost btn-xs rounded-lg text-violet-400 hover:text-violet-600 hover:bg-violet-50 ml-1"
+              data-amount="{{ t.amount }}"
+              data-category="{{ t.category }}"
+              data-note="{{ t.note | e }}"
+              onclick="openMakeRecurring(this)">Repeat</button>
+            {% endif %}
             <button
               class="btn btn-ghost btn-xs rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 ml-1"
               data-idx="{{ idx }}"
@@ -345,6 +361,52 @@
         <button type="submit" class="btn btn-error rounded-xl px-8">Delete</button>
       </form>
     </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- Make recurring modal -->
+<dialog id="make_recurring_modal" class="modal">
+  <div class="modal-box rounded-2xl border border-pink-100 shadow-xl max-w-sm">
+    <h3 class="font-bold text-lg text-pink-900 mb-1">Make Recurring</h3>
+    <p class="text-sm text-gray-400 mb-4">Creates a new recurring rule. The original transaction stays in your history.</p>
+    <div class="bg-pink-50 border border-pink-100 rounded-xl px-4 py-2.5 mb-4 text-sm font-semibold text-gray-700" id="mr_preview"></div>
+    <form method="POST" action="{{ url_for('add_recurring_route') }}" class="space-y-3">
+      <input type="hidden" name="amount"   id="mr_amount" />
+      <input type="hidden" name="category" id="mr_category" />
+      <input type="hidden" name="next"     value="transactions" />
+      <div class="form-control">
+        <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Frequency</span></label>
+        <select name="frequency" id="mr_frequency"
+                class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400">
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Bi-weekly</option>
+          <option value="monthly" selected>Monthly</option>
+          <option value="annually">Annually</option>
+        </select>
+      </div>
+      <div class="form-control">
+        <label class="label py-1">
+          <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Starts</span>
+          <span class="label-text-alt text-gray-300">optional</span>
+        </label>
+        <input type="date" name="effective_date" id="mr_effective_date"
+               class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400" />
+      </div>
+      <div class="form-control">
+        <label class="label py-1">
+          <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Note</span>
+          <span class="label-text-alt text-gray-300">optional</span>
+        </label>
+        <input type="text" name="note" id="mr_note" maxlength="200"
+               class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400" />
+      </div>
+      <div class="modal-action mt-2 gap-2">
+        <button type="button" class="btn btn-ghost rounded-xl"
+                onclick="document.getElementById('make_recurring_modal').close()">Cancel</button>
+        <button type="submit" class="btn btn-primary rounded-xl px-6">Create Rule</button>
+      </div>
+    </form>
   </div>
   <form method="dialog" class="modal-backdrop"><button>close</button></form>
 </dialog>
@@ -637,6 +699,18 @@ function openDelete(btn) {
   document.getElementById('delete_form').action = `/transactions/${d.idx}/delete`;
   document.getElementById('delete_label').textContent = d.label;
   document.getElementById('delete_modal').showModal();
+}
+
+function openMakeRecurring(btn) {
+  const d = btn.dataset;
+  document.getElementById('mr_amount').value          = d.amount;
+  document.getElementById('mr_category').value        = d.category;
+  document.getElementById('mr_note').value            = d.note || '';
+  document.getElementById('mr_effective_date').value  = '';
+  document.getElementById('mr_frequency').value       = 'monthly';
+  document.getElementById('mr_preview').textContent   =
+    d.category + '  ·  $' + parseFloat(d.amount).toFixed(2);
+  document.getElementById('make_recurring_modal').showModal();
 }
 
 function updateBulkBar() {

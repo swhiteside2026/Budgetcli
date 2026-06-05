@@ -112,7 +112,7 @@ def test_recurring_invalid_category_raises() -> None:
 
 def test_recurring_invalid_frequency_raises() -> None:
     with pytest.raises(ValueError, match="frequency"):
-        RecurringTransaction(amount=100.0, category="food", frequency="weekly")
+        RecurringTransaction(amount=100.0, category="food", frequency="daily")
 
 
 def test_recurring_is_due_when_never_applied() -> None:

@@ -570,14 +570,22 @@ def clear_notifications_route():
 def recurring() -> str:
     today = date.today()
     rec_list = g.store.load_recurring()
-    indexed = [(i, r, r.is_due(today)) for i, r in enumerate(rec_list)]
-    due_count = sum(1 for _, _, due in indexed if due)
+    active_recurring = []
+    upcoming_recurring = []
+    for i, r in enumerate(rec_list):
+        if r.effective_date and r.effective_date > today:
+            upcoming_recurring.append((i, r))
+        else:
+            active_recurring.append((i, r, r.is_due(today), r.next_due_date(today)))
+    due_count = sum(1 for _, _, is_due, _ in active_recurring if is_due)
     return render_template(
         "recurring.html",
-        indexed_recurring=indexed,
+        active_recurring=active_recurring,
+        upcoming_recurring=upcoming_recurring,
         categories=_all_categories(),
         today=today,
         due_count=due_count,
+        valid_frequencies=["weekly", "biweekly", "monthly", "annually"],
     )
 
 
@@ -585,11 +593,14 @@ def recurring() -> str:
 @login_required
 def add_recurring_route():
     try:
+        raw_eff = request.form.get("effective_date", "").strip()
+        effective_date = date.fromisoformat(raw_eff) if raw_eff else None
         rt = RecurringTransaction(
             amount=float(request.form["amount"]),
             category=request.form["category"],
-            frequency="monthly",
+            frequency=request.form.get("frequency", "monthly"),
             note=request.form.get("note", ""),
+            effective_date=effective_date,
         )
         g.store.add_recurring(rt)
         flash("Recurring transaction added.", "success")

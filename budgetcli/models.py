@@ -1,6 +1,7 @@
 # Transaction data model
+import calendar
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 VALID_CATEGORIES: list[str] = [
@@ -49,7 +50,24 @@ class Transaction:
         )
 
 
-VALID_FREQUENCIES: list[str] = ["monthly"]
+VALID_FREQUENCIES: list[str] = ["weekly", "biweekly", "monthly", "annually"]
+
+
+def _add_months(d: date, n: int) -> date:
+    """Return d shifted forward by n calendar months, clamping to the last day of the target month."""
+    m = d.month + n
+    y = d.year + (m - 1) // 12
+    m = (m - 1) % 12 + 1
+    day = min(d.day, calendar.monthrange(y, m)[1])
+    return date(y, m, day)
+
+
+def _add_years(d: date, n: int) -> date:
+    """Return d shifted forward by n years, falling back to Mar 1 for Feb-29 in non-leap years."""
+    try:
+        return date(d.year + n, d.month, d.day)
+    except ValueError:
+        return date(d.year + n, 3, 1)
 
 
 @dataclass
@@ -59,6 +77,7 @@ class RecurringTransaction:
     frequency: str
     note: str = field(default="")
     last_applied: date | None = field(default=None)
+    effective_date: date | None = field(default=None)
 
     def __post_init__(self) -> None:
         if self.amount <= 0:
@@ -69,11 +88,38 @@ class RecurringTransaction:
             raise ValueError(f"frequency must be one of {VALID_FREQUENCIES}")
         if isinstance(self.last_applied, str):
             self.last_applied = date.fromisoformat(self.last_applied)
+        if isinstance(self.effective_date, str):
+            self.effective_date = date.fromisoformat(self.effective_date)
 
     def is_due(self, today: date) -> bool:
+        start = self.effective_date or date.min
+        if today < start:
+            return False
         if self.last_applied is None:
             return True
-        return self.last_applied.year != today.year or self.last_applied.month != today.month
+        if self.frequency == "weekly":
+            return (today - self.last_applied).days >= 7
+        if self.frequency == "biweekly":
+            return (today - self.last_applied).days >= 14
+        if self.frequency == "annually":
+            return today.year != self.last_applied.year
+        # monthly (default)
+        return today.year != self.last_applied.year or today.month != self.last_applied.month
+
+    def next_due_date(self, today: date) -> date | None:
+        """The concrete date this rule will next fire, or None if already due."""
+        if self.is_due(today):
+            return None
+        if self.last_applied is None:
+            return self.effective_date or today
+        if self.frequency == "weekly":
+            return self.last_applied + timedelta(days=7)
+        if self.frequency == "biweekly":
+            return self.last_applied + timedelta(days=14)
+        if self.frequency == "annually":
+            return _add_years(self.last_applied, 1)
+        # monthly
+        return _add_months(self.last_applied, 1)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -82,6 +128,7 @@ class RecurringTransaction:
             "frequency": self.frequency,
             "note": self.note,
             "last_applied": self.last_applied.isoformat() if self.last_applied else None,
+            "effective_date": self.effective_date.isoformat() if self.effective_date else None,
         }
 
     @classmethod
@@ -89,9 +136,10 @@ class RecurringTransaction:
         return cls(
             amount=float(data["amount"]),
             category=data["category"],
-            frequency=data["frequency"],
+            frequency=data.get("frequency", "monthly"),
             note=data.get("note", ""),
             last_applied=data.get("last_applied"),
+            effective_date=data.get("effective_date"),
         )
 
 

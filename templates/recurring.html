@@ -6,7 +6,7 @@
 <!-- Page header -->
 <div>
   <h1 class="text-2xl font-bold text-pink-900">Recurring Transactions</h1>
-  <p class="text-pink-400 text-sm mt-0.5">Auto-apply monthly transactions like rent, subscriptions, and paychecks</p>
+  <p class="text-pink-400 text-sm mt-0.5">Schedule weekly, bi-weekly, monthly, or annual transactions</p>
 </div>
 
 <!-- ── Top row: apply card + add form ─────────────────────────── -->
@@ -26,10 +26,10 @@
     {% if due_count > 0 %}
     <p class="text-sm text-gray-500 mb-4">
       <span class="font-bold text-pink-500">{{ due_count }}</span>
-      transaction{{ "s" if due_count != 1 else "" }} due for {{ today.strftime("%B %Y") }}.
+      transaction{{ "s" if due_count != 1 else "" }} due as of {{ today.strftime("%B %d, %Y") }}.
     </p>
     {% else %}
-    <p class="text-sm text-gray-400 mb-4">All recurring transactions are up to date for {{ today.strftime("%B %Y") }}.</p>
+    <p class="text-sm text-gray-400 mb-4">All active recurring transactions are up to date.</p>
     {% endif %}
 
     <form method="POST" action="{{ url_for('apply_recurring_route') }}">
@@ -67,11 +67,21 @@
           {% endfor %}
         </select>
       </div>
-      <div class="form-control">
+      <div class="form-control flex-shrink-0">
         <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Frequency</span></label>
-        <div class="input input-bordered input-sm rounded-xl border-pink-100 flex items-center px-3 text-gray-400 text-sm bg-gray-50 select-none">
-          Monthly
-        </div>
+        <select name="frequency" class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400">
+          {% for freq in valid_frequencies %}
+          <option value="{{ freq }}">{{ freq | capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-control flex-shrink-0">
+        <label class="label py-1">
+          <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Starts</span>
+          <span class="label-text-alt text-gray-300">optional</span>
+        </label>
+        <input type="date" name="effective_date"
+               class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400 w-36" />
       </div>
       <div class="form-control min-w-44 flex-2">
         <label class="label py-1">
@@ -86,17 +96,71 @@
 
 </div>
 
-<!-- ── Recurring list ──────────────────────────────────────────── -->
+{% if upcoming_recurring %}
+<!-- ── Upcoming (future effective date) ────────────────────────── -->
+<div class="rounded-2xl border border-blue-100 bg-blue-50/60 shadow-sm">
+  <div class="px-6 pt-5 pb-1 flex items-center gap-2">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+    <h2 class="font-bold text-blue-900">Upcoming</h2>
+    <span class="badge badge-ghost badge-sm">{{ upcoming_recurring|length }}</span>
+    <span class="text-xs text-blue-400 ml-1">scheduled to start in the future</span>
+  </div>
+  <div class="overflow-x-auto px-2 pb-4">
+    <table class="table table-sm w-full">
+      <thead>
+        <tr class="text-xs uppercase tracking-wide text-blue-300 border-b border-blue-100">
+          <th class="font-semibold py-3">Category</th>
+          <th class="font-semibold">Amount</th>
+          <th class="font-semibold">Frequency</th>
+          <th class="font-semibold">Starts</th>
+          <th class="font-semibold">Note</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for idx, rt in upcoming_recurring %}
+        <tr class="hover:bg-blue-50 border-b border-blue-50 group">
+          <td class="py-3">
+            <span class="badge {{ cat_badge.get(rt.category, 'badge-ghost') }} badge-sm font-medium">{{ rt.category }}</span>
+          </td>
+          <td class="font-mono font-semibold {{ 'text-emerald-600' if rt.category|lower == 'income' else 'text-red-500' }} whitespace-nowrap">
+            {{ "+" if rt.category|lower == 'income' else "−" }}${{ "%.2f"|format(rt.amount) }}
+          </td>
+          <td class="text-sm text-blue-400 capitalize">{{ rt.frequency }}</td>
+          <td class="text-sm text-blue-500 font-medium whitespace-nowrap">
+            {{ rt.effective_date.strftime("%b %d, %Y") }}
+          </td>
+          <td class="text-sm text-blue-400 max-w-xs truncate">{{ rt.note or "—" }}</td>
+          <td class="opacity-0 group-hover:opacity-100 transition-opacity">
+            <form method="POST" action="{{ url_for('delete_recurring_route', idx=idx) }}" class="inline">
+              <button type="submit"
+                class="btn btn-ghost btn-xs rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50"
+                onclick="return confirm('Remove this recurring transaction?')">
+                Remove
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Active recurring list ───────────────────────────────────── -->
 <div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
   <div class="px-6 pt-5 pb-1 flex items-center gap-2">
     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
     </svg>
-    <h2 class="font-bold text-pink-900">All Recurring</h2>
-    <span class="badge badge-ghost badge-sm">{{ indexed_recurring|length }}</span>
+    <h2 class="font-bold text-pink-900">Active Recurring</h2>
+    <span class="badge badge-ghost badge-sm">{{ active_recurring|length }}</span>
   </div>
 
-  {% if indexed_recurring %}
+  {% if active_recurring %}
   <div class="overflow-x-auto px-2 pb-4">
     <table class="table table-sm w-full">
       <thead>
@@ -104,22 +168,30 @@
           <th class="font-semibold py-3">Category</th>
           <th class="font-semibold">Amount</th>
           <th class="font-semibold">Frequency</th>
+          <th class="font-semibold">Started</th>
           <th class="font-semibold">Note</th>
           <th class="font-semibold">Last Applied</th>
-          <th class="font-semibold">Status</th>
+          <th class="font-semibold">Next Due</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
-        {% for idx, rt, is_due in indexed_recurring %}
+        {% for idx, rt, is_due, next_due in active_recurring %}
         <tr class="hover:bg-pink-50/40 border-b border-pink-50/50 group">
           <td class="py-3">
             <span class="badge {{ cat_badge.get(rt.category, 'badge-ghost') }} badge-sm font-medium">{{ rt.category }}</span>
           </td>
-          <td class="font-mono font-semibold {{ 'text-emerald-600' if rt.category == 'income' else 'text-red-500' }} whitespace-nowrap">
-            {{ "+" if rt.category == 'income' else "−" }}${{ "%.2f"|format(rt.amount) }}
+          <td class="font-mono font-semibold {{ 'text-emerald-600' if rt.category|lower == 'income' else 'text-red-500' }} whitespace-nowrap">
+            {{ "+" if rt.category|lower == 'income' else "−" }}${{ "%.2f"|format(rt.amount) }}
           </td>
           <td class="text-sm text-gray-400 capitalize">{{ rt.frequency }}</td>
+          <td class="text-sm text-gray-400 whitespace-nowrap">
+            {% if rt.effective_date %}
+            {{ rt.effective_date.strftime("%b %d, %Y") }}
+            {% else %}
+            <span class="text-gray-300">—</span>
+            {% endif %}
+          </td>
           <td class="text-sm text-gray-400 max-w-xs truncate">{{ rt.note or "—" }}</td>
           <td class="text-sm text-gray-400 whitespace-nowrap">
             {% if rt.last_applied %}
@@ -128,11 +200,13 @@
             <span class="text-gray-300">Never</span>
             {% endif %}
           </td>
-          <td>
+          <td class="whitespace-nowrap">
             {% if is_due %}
-            <span class="badge badge-warning badge-sm font-medium">Due</span>
+            <span class="badge badge-warning badge-sm font-medium">Due now</span>
+            {% elif next_due %}
+            <span class="text-sm text-gray-400">{{ next_due.strftime("%b %d, %Y") }}</span>
             {% else %}
-            <span class="badge badge-success badge-sm font-medium">Applied</span>
+            <span class="text-gray-300 text-sm">—</span>
             {% endif %}
           </td>
           <td class="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -154,8 +228,8 @@
     <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
     </svg>
-    <p class="font-medium text-gray-400">No recurring transactions</p>
-    <p class="text-sm mt-1">Add one above to auto-apply it each month.</p>
+    <p class="font-medium text-gray-400">No active recurring transactions</p>
+    <p class="text-sm mt-1">Add one above to auto-apply it on schedule.</p>
   </div>
   {% endif %}
 

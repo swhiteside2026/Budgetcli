@@ -7,13 +7,13 @@
 <!-- Page header -->
 <div class="flex items-start justify-between gap-4">
   <div>
-    <h1 class="text-2xl font-bold text-pink-900">Transactions</h1>
-    <p class="text-pink-400 text-sm mt-0.5">
+    <h1 class="text-2xl font-bold text-base-content">Transactions</h1>
+    <p class="text-primary/70 text-sm mt-0.5">
       <span id="hdr_count">{{ indexed_transactions|length }}</span> of {{ indexed_transactions|length }} transactions
     </p>
   </div>
   <a href="{{ url_for('import_excel') }}"
-     class="btn btn-outline btn-sm rounded-xl border-pink-200 text-pink-700 hover:bg-pink-50 hover:border-pink-400 gap-2 flex-shrink-0">
+     class="btn btn-outline btn-sm rounded-xl border-base-300 text-primary hover:bg-base-200 hover:border-primary gap-2 flex-shrink-0">
     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
     </svg>
@@ -22,27 +22,27 @@
 </div>
 
 <!-- ── Add transaction ─────────────────────────────────────────── -->
-<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm">
   <div class="px-6 pt-5 pb-2 flex items-center gap-2">
-    <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div class="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
       </svg>
     </div>
-    <h2 class="font-bold text-pink-900">Add Transaction</h2>
+    <h2 class="font-bold text-base-content">Add Transaction</h2>
   </div>
   <div class="px-6 pb-6">
     <form method="POST" action="{{ url_for('add_transaction_route') }}" class="flex flex-wrap gap-3 items-end">
       <div class="form-control min-w-32 flex-1">
         <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Amount</span></label>
-        <label class="input input-bordered input-sm flex items-center gap-1 rounded-xl border-pink-200 focus-within:border-pink-400">
+        <label class="input input-bordered input-sm flex items-center gap-1 rounded-xl border-base-300 focus-within:border-primary">
           <span class="text-gray-300">$</span>
           <input type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required class="grow bg-transparent" />
         </label>
       </div>
       <div class="form-control min-w-36 flex-1">
         <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Category</span></label>
-        <select name="category" required class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400">
+        <select name="category" required class="select select-bordered select-sm rounded-xl border-base-300 focus:border-primary">
           {% for cat in categories %}
           <option value="{{ cat }}">{{ cat }}</option>
           {% endfor %}
@@ -50,14 +50,14 @@
       </div>
       <div class="form-control min-w-36 flex-1">
         <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Date</span></label>
-        <input type="date" name="date" value="{{ today }}" required class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400" />
+        <input type="date" name="date" value="{{ today }}" required class="input input-bordered input-sm rounded-xl border-base-300 focus:border-primary" />
       </div>
       <div class="form-control min-w-48 flex-2">
         <label class="label py-1">
           <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Note</span>
           <span class="label-text-alt text-gray-300">optional</span>
         </label>
-        <input type="text" name="note" placeholder="What was this for?" maxlength="200" class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400" />
+        <input type="text" name="note" placeholder="What was this for?" maxlength="200" class="input input-bordered input-sm rounded-xl border-base-300 focus:border-primary" />
       </div>
       <button type="submit" class="btn btn-primary btn-sm rounded-xl px-6">Add</button>
     </form>
@@ -65,7 +65,7 @@
 </div>
 
 <!-- ── Filter bar ──────────────────────────────────────────────── -->
-<div class="rounded-2xl border border-pink-100 bg-white shadow-sm px-6 py-4">
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm px-6 py-4">
   <div class="flex flex-wrap items-center gap-3">
 
     <!-- Category -->
@@ -74,7 +74,7 @@
         <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-400">Category</span>
       </label>
       <select id="f_category" onchange="applyFilters()"
-              class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400">
+              class="select select-bordered select-sm rounded-xl border-base-300 focus:border-primary">
         <option value="">All categories</option>
         {% for cat in categories %}
         <option value="{{ cat }}">{{ cat }}</option>
@@ -89,11 +89,11 @@
       </label>
       <div class="join" id="f_type_group">
         <button type="button" data-type="" onclick="setType(this)"
-                class="join-item btn btn-sm border border-pink-200 btn-active">All</button>
+                class="join-item btn btn-sm border border-base-300 btn-active">All</button>
         <button type="button" data-type="income" onclick="setType(this)"
-                class="join-item btn btn-sm border border-pink-200">Income</button>
+                class="join-item btn btn-sm border border-base-300">Income</button>
         <button type="button" data-type="expense" onclick="setType(this)"
-                class="join-item btn btn-sm border border-pink-200">Expense</button>
+                class="join-item btn btn-sm border border-base-300">Expense</button>
       </div>
     </div>
 
@@ -103,14 +103,14 @@
         <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-400">From</span>
       </label>
       <input type="date" id="f_from" onchange="applyFilters()"
-             class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400 w-36" />
+             class="input input-bordered input-sm rounded-xl border-base-300 focus:border-primary w-36" />
     </div>
     <div class="form-control flex-shrink-0">
       <label class="label py-0.5">
         <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-400">To</span>
       </label>
       <input type="date" id="f_to" onchange="applyFilters()"
-             class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400 w-36" />
+             class="input input-bordered input-sm rounded-xl border-base-300 focus:border-primary w-36" />
     </div>
 
     <!-- Source -->
@@ -120,11 +120,11 @@
       </label>
       <div class="join" id="f_source_group">
         <button type="button" data-source="" onclick="setSource(this)"
-                class="join-item btn btn-sm border border-pink-200 btn-active">All</button>
+                class="join-item btn btn-sm border border-base-300 btn-active">All</button>
         <button type="button" data-source="manual" onclick="setSource(this)"
-                class="join-item btn btn-sm border border-pink-200">One-time</button>
+                class="join-item btn btn-sm border border-base-300">One-time</button>
         <button type="button" data-source="recurring" onclick="setSource(this)"
-                class="join-item btn btn-sm border border-pink-200">Recurring</button>
+                class="join-item btn btn-sm border border-base-300">Recurring</button>
       </div>
     </div>
 
@@ -143,12 +143,12 @@
 <div class="grid grid-cols-1 lg:grid-cols-[3fr_2fr] items-start gap-6">
 
 <!-- ── Transaction list ────────────────────────────────────────── -->
-<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm">
   <div class="px-6 pt-5 pb-1 flex items-center gap-2">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
     </svg>
-    <h2 class="font-bold text-pink-900">All Transactions</h2>
+    <h2 class="font-bold text-base-content">All Transactions</h2>
     <span id="list_badge" class="badge badge-ghost badge-sm">{{ indexed_transactions|length }}</span>
   </div>
 
@@ -156,7 +156,7 @@
   <div class="overflow-x-auto px-2 pb-4">
     <table class="table table-sm w-full">
       <thead>
-        <tr class="text-xs uppercase tracking-wide text-gray-400 border-b border-pink-50">
+        <tr class="text-xs uppercase tracking-wide text-gray-400 border-b border-base-200/50">
           <th class="w-10 py-3 pl-3">
             <input type="checkbox" id="select_all"
                    class="checkbox checkbox-xs checkbox-primary rounded"
@@ -171,7 +171,7 @@
       </thead>
       <tbody>
         {% for idx, t in indexed_transactions %}
-        <tr class="hover:bg-pink-50/40 border-b border-pink-50/50 group" id="row_{{ idx }}"
+        <tr class="hover:bg-base-200/40 border-b border-base-200/50 group" id="row_{{ idx }}"
             data-idx="{{ idx }}"
             data-category="{{ t.category }}"
             data-date="{{ t.date.isoformat() }}"
@@ -201,7 +201,7 @@
           </td>
           <td class="text-right whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
             <button
-              class="btn btn-ghost btn-xs rounded-lg text-pink-400 hover:text-pink-600 hover:bg-pink-50"
+              class="btn btn-ghost btn-xs rounded-lg text-primary/70 hover:text-primary hover:bg-base-200"
               data-idx="{{ idx }}"
               data-amount="{{ t.amount }}"
               data-category="{{ t.category }}"
@@ -210,7 +210,7 @@
               onclick="openEdit(this)">Edit</button>
             {% if t.source != "recurring" %}
             <button
-              class="btn btn-ghost btn-xs rounded-lg text-violet-400 hover:text-violet-600 hover:bg-violet-50 ml-1"
+              class="btn btn-ghost btn-xs rounded-lg text-secondary hover:bg-secondary/15 ml-1"
               data-amount="{{ t.amount }}"
               data-category="{{ t.category }}"
               data-note="{{ t.note | e }}"
@@ -240,30 +240,30 @@
 </div>
 
 <!-- ── Category graph ──────────────────────────────────────────── -->
-<div class="rounded-2xl border border-pink-100 bg-white shadow-sm flex flex-col">
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm flex flex-col">
   <div class="px-6 pt-5 pb-3 flex items-start justify-between gap-2 flex-wrap">
     <div>
       <div class="flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
         </svg>
-        <h2 id="chart_title" class="font-bold text-pink-900">Spending by Category</h2>
+        <h2 id="chart_title" class="font-bold text-base-content">Spending by Category</h2>
       </div>
       <p id="chart_subtitle" class="text-xs text-gray-400 mt-0.5 ml-7"></p>
     </div>
     <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
       <div class="join">
         <button id="chart_expenses_btn" type="button" onclick="setChartMode('expenses')"
-                class="join-item btn btn-xs border border-pink-200 btn-active">Expenses</button>
+                class="join-item btn btn-xs border border-base-300 btn-active">Expenses</button>
         <button id="chart_income_btn" type="button" onclick="setChartMode('income')"
-                class="join-item btn btn-xs border border-pink-200">Income</button>
+                class="join-item btn btn-xs border border-base-300">Income</button>
       </div>
       <div class="join">
         <button id="chart_donut_btn" type="button" onclick="setChartType('donut')"
-                class="join-item btn btn-xs border border-pink-200 btn-active">Donut</button>
+                class="join-item btn btn-xs border border-base-300 btn-active">Donut</button>
         <button id="chart_bar_btn" type="button" onclick="setChartType('bar')"
-                class="join-item btn btn-xs border border-pink-200">Bar</button>
+                class="join-item btn btn-xs border border-base-300">Bar</button>
       </div>
     </div>
   </div>
@@ -286,16 +286,16 @@
 
 <!-- ── Floating bulk-action pill ───────────────────────────────── -->
 <div id="bulk_bar"
-     class="fixed bottom-6 z-50 flex items-center gap-3 bg-white border border-pink-100 rounded-full shadow-xl px-5 py-2.5"
+     class="fixed bottom-6 z-50 flex items-center gap-3 bg-base-100 border border-base-200 rounded-full shadow-xl px-5 py-2.5"
      style="left:50%; transform:translateX(-50%) translateY(1rem); opacity:0; pointer-events:none; transition:transform 0.2s ease-out, opacity 0.2s ease-out;"
      aria-live="polite">
-  <span class="flex items-center gap-2 text-sm font-semibold text-pink-900">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <span class="flex items-center gap-2 text-sm font-semibold text-base-content">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
     </svg>
     <span id="bulk_count">0</span> selected
   </span>
-  <div class="w-px h-5 bg-pink-100"></div>
+  <div class="w-px h-5 bg-primary/15"></div>
   <button type="button"
           onclick="clearSelection()"
           class="btn btn-ghost btn-sm rounded-full text-gray-400 hover:text-gray-600 px-3 min-h-0 h-8">
@@ -310,25 +310,25 @@
 
 <!-- Edit modal -->
 <dialog id="edit_modal" class="modal">
-  <div class="modal-box rounded-2xl border border-pink-100 shadow-xl max-w-lg">
-    <h3 class="font-bold text-lg text-pink-900 mb-5">Edit Transaction</h3>
+  <div class="modal-box rounded-2xl border border-base-200 shadow-xl max-w-lg">
+    <h3 class="font-bold text-lg text-base-content mb-5">Edit Transaction</h3>
     <form method="POST" id="edit_form" class="space-y-4">
       <div class="grid grid-cols-2 gap-4">
         <div class="form-control">
           <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Amount</span></label>
-          <label class="input input-bordered flex items-center gap-1 rounded-xl border-pink-200">
+          <label class="input input-bordered flex items-center gap-1 rounded-xl border-base-300">
             <span class="text-gray-300">$</span>
             <input type="number" name="amount" step="0.01" min="0.01" required class="grow bg-transparent" />
           </label>
         </div>
         <div class="form-control">
           <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Date</span></label>
-          <input type="date" name="date" required class="input input-bordered rounded-xl border-pink-200" />
+          <input type="date" name="date" required class="input input-bordered rounded-xl border-base-300" />
         </div>
       </div>
       <div class="form-control">
         <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Category</span></label>
-        <select name="category" required class="select select-bordered rounded-xl border-pink-200">
+        <select name="category" required class="select select-bordered rounded-xl border-base-300">
           {% for cat in categories %}
           <option value="{{ cat }}">{{ cat }}</option>
           {% endfor %}
@@ -336,7 +336,7 @@
       </div>
       <div class="form-control">
         <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Note</span></label>
-        <input type="text" name="note" placeholder="Optional note" maxlength="200" class="input input-bordered rounded-xl border-pink-200" />
+        <input type="text" name="note" placeholder="Optional note" maxlength="200" class="input input-bordered rounded-xl border-base-300" />
       </div>
       <div class="modal-action mt-2 gap-2">
         <button type="button" class="btn btn-ghost rounded-xl" onclick="document.getElementById('edit_modal').close()">Cancel</button>
@@ -349,10 +349,10 @@
 
 <!-- Delete confirmation modal (single row) -->
 <dialog id="delete_modal" class="modal">
-  <div class="modal-box rounded-2xl border border-pink-100 shadow-xl">
-    <h3 class="font-bold text-lg text-pink-900">Delete this transaction?</h3>
+  <div class="modal-box rounded-2xl border border-base-200 shadow-xl">
+    <h3 class="font-bold text-lg text-base-content">Delete this transaction?</h3>
     <p class="text-sm text-gray-500 mt-2 mb-1">This will permanently remove:</p>
-    <div class="bg-rose-50 border border-rose-100 rounded-xl px-4 py-3 my-3">
+    <div class="bg-base-200/50 border border-base-200 rounded-xl px-4 py-3 my-3">
       <p class="font-semibold text-gray-700" id="delete_label"></p>
     </div>
     <div class="modal-action gap-2">
@@ -367,10 +367,10 @@
 
 <!-- Make recurring modal -->
 <dialog id="make_recurring_modal" class="modal">
-  <div class="modal-box rounded-2xl border border-pink-100 shadow-xl max-w-sm">
-    <h3 class="font-bold text-lg text-pink-900 mb-1">Make Recurring</h3>
+  <div class="modal-box rounded-2xl border border-base-200 shadow-xl max-w-sm">
+    <h3 class="font-bold text-lg text-base-content mb-1">Make Recurring</h3>
     <p class="text-sm text-gray-400 mb-4">Creates a new recurring rule. The original transaction stays in your history.</p>
-    <div class="bg-pink-50 border border-pink-100 rounded-xl px-4 py-2.5 mb-4 text-sm font-semibold text-gray-700" id="mr_preview"></div>
+    <div class="bg-base-200/50 border border-base-200 rounded-xl px-4 py-2.5 mb-4 text-sm font-semibold text-gray-700" id="mr_preview"></div>
     <form method="POST" action="{{ url_for('add_recurring_route') }}" class="space-y-3">
       <input type="hidden" name="amount"   id="mr_amount" />
       <input type="hidden" name="category" id="mr_category" />
@@ -378,7 +378,7 @@
       <div class="form-control">
         <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Frequency</span></label>
         <select name="frequency" id="mr_frequency"
-                class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400">
+                class="select select-bordered select-sm rounded-xl border-base-300 focus:border-primary">
           <option value="weekly">Weekly</option>
           <option value="biweekly">Bi-weekly</option>
           <option value="monthly" selected>Monthly</option>
@@ -391,7 +391,7 @@
           <span class="label-text-alt text-gray-300">optional</span>
         </label>
         <input type="date" name="effective_date" id="mr_effective_date"
-               class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400" />
+               class="input input-bordered input-sm rounded-xl border-base-300 focus:border-primary" />
       </div>
       <div class="form-control">
         <label class="label py-1">
@@ -399,7 +399,7 @@
           <span class="label-text-alt text-gray-300">optional</span>
         </label>
         <input type="text" name="note" id="mr_note" maxlength="200"
-               class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400" />
+               class="input input-bordered input-sm rounded-xl border-base-300 focus:border-primary" />
       </div>
       <div class="modal-action mt-2 gap-2">
         <button type="button" class="btn btn-ghost rounded-xl"
@@ -413,8 +413,8 @@
 
 <!-- Bulk delete confirmation modal -->
 <dialog id="bulk_delete_modal" class="modal">
-  <div class="modal-box rounded-2xl border border-pink-100 shadow-xl">
-    <h3 class="font-bold text-lg text-pink-900">
+  <div class="modal-box rounded-2xl border border-base-200 shadow-xl">
+    <h3 class="font-bold text-lg text-base-content">
       Delete <span id="bulk_modal_count">0</span> transaction(s)?
     </h3>
     <p class="text-sm text-gray-500 mt-2">This can't be undone.</p>
@@ -746,7 +746,7 @@ function updateBulkBar() {
   }
 
   allCbs.forEach(cb => {
-    cb.closest('tr').classList.toggle('bg-pink-50/70', cb.checked);
+    cb.closest('tr').classList.toggle('bg-base-200/70', cb.checked);
   });
 }
 

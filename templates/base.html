@@ -265,9 +265,9 @@ function updateBellBadge(count) {
 
 <!-- ── Voice Control Modal ────────────────────────────────────── -->
 <dialog id="voice_modal" class="modal">
-  <div class="modal-box rounded-2xl border border-pink-100 shadow-xl max-w-sm">
-    <h3 class="font-bold text-lg text-pink-900 mb-5 flex items-center gap-2">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <div class="modal-box rounded-2xl border border-base-200 shadow-xl max-w-sm">
+    <h3 class="font-bold text-lg text-base-content mb-5 flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
       </svg>
       Voice Control
@@ -306,7 +306,7 @@ function updateBellBadge(count) {
       <div id="voice_feedback" class="min-h-5 mb-4"></div>
 
       <!-- Confirmation panel (hidden until a parseable command is heard) -->
-      <div id="voice_confirm" class="hidden rounded-xl border border-pink-200 bg-pink-50/60 p-4 mb-4">
+      <div id="voice_confirm" class="hidden rounded-xl border border-base-300 bg-base-200/50 p-4 mb-4">
         <p id="confirm_text" class="font-semibold text-gray-800 text-sm mb-3 text-center"></p>
         <div class="flex gap-2">
           <button id="voice_confirm_btn" onclick="confirmVoiceAdd()" class="btn btn-primary btn-sm rounded-xl flex-1">Confirm</button>

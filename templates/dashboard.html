@@ -6,8 +6,8 @@
 <!-- Page header -->
 <div class="flex items-start justify-between">
   <div>
-    <h1 class="text-2xl font-bold text-pink-900">Good to see you!</h1>
-    <p class="text-pink-400 text-sm mt-0.5">Here is your financial summary for {{ month_label }}</p>
+    <h1 class="text-2xl font-bold text-base-content">Good to see you!</h1>
+    <p class="text-primary/70 text-sm mt-0.5">Here is your financial summary for {{ month_label }}</p>
   </div>
   <span class="badge badge-primary badge-lg font-semibold mt-1">{{ month_label }}</span>
 </div>
@@ -16,7 +16,7 @@
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
   <!-- Income -->
-  <div class="rounded-2xl border border-pink-100 bg-white shadow-sm p-5">
+  <div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm p-5">
     <div class="flex items-center gap-2 mb-3">
       <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -30,7 +30,7 @@
   </div>
 
   <!-- Expenses -->
-  <div class="rounded-2xl border border-pink-100 bg-white shadow-sm p-5">
+  <div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm p-5">
     <div class="flex items-center gap-2 mb-3">
       <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -44,24 +44,24 @@
   </div>
 
   <!-- Saved / Overspent -->
-  <div class="rounded-2xl border border-pink-100 bg-white shadow-sm p-5">
+  <div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm p-5">
     <div class="flex items-center gap-2 mb-3">
-      <div class="w-8 h-8 rounded-lg {{ 'bg-pink-100' if savings >= 0 else 'bg-orange-100' }} flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 {{ 'text-pink-500' if savings >= 0 else 'text-orange-500' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div class="w-8 h-8 rounded-lg {{ 'bg-success/15' if savings >= 0 else 'bg-warning/15' }} flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 {{ 'text-success' if savings >= 0 else 'text-warning' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 10v1m-3-5h6" />
         </svg>
       </div>
       <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">{{ "Saved" if savings >= 0 else "Overspent" }}</span>
     </div>
-    <p class="text-2xl font-bold {{ 'text-pink-500' if savings >= 0 else 'text-orange-500' }}">${{ "%.2f"|format(savings_abs) }}</p>
+    <p class="text-2xl font-bold {{ 'text-success' if savings >= 0 else 'text-warning' }}">${{ "%.2f"|format(savings_abs) }}</p>
     <p class="text-xs text-gray-400 mt-1">{{ month_label }}</p>
   </div>
 
   <!-- All-time balance -->
-  <div class="rounded-2xl border border-pink-100 bg-white shadow-sm p-5">
+  <div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm p-5">
     <div class="flex items-center gap-2 mb-3">
-      <div class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div class="w-8 h-8 rounded-lg bg-secondary/15 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       </div>
@@ -77,16 +77,16 @@
 
 <!-- ── Budget limits ───────────────────────────────────────────── -->
 {% if budget_data %}
-<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm">
   <div class="px-6 pt-5 pb-1 flex items-center justify-between">
     <div class="flex items-center gap-2">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
       </svg>
-      <h2 class="font-bold text-pink-900">Budget Limits</h2>
-      <span class="text-sm text-pink-300">— {{ month_label }}</span>
+      <h2 class="font-bold text-base-content">Budget Limits</h2>
+      <span class="text-sm text-base-content/30">— {{ month_label }}</span>
     </div>
-    <a href="{{ url_for('limits') }}" class="text-sm text-pink-400 hover:text-pink-600 font-medium transition-colors">Manage →</a>
+    <a href="{{ url_for('limits') }}" class="text-sm text-primary/70 hover:text-primary font-medium transition-colors">Manage →</a>
   </div>
   <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-5">
     {% for item in budget_data %}
@@ -104,7 +104,7 @@
       {% if item.bar_class == 'progress-error' %}
       <p class="text-xs text-red-400 mt-1">Over by ${{ "%.2f"|format(item.spent - item.limit) }}</p>
       {% elif item.bar_class == 'progress-warning' %}
-      <p class="text-xs text-yellow-500 mt-1">{{ "%.0f"|format(item.pct) }}% used — approaching limit</p>
+      <p class="text-xs text-warning mt-1">{{ "%.0f"|format(item.pct) }}% used — approaching limit</p>
       {% else %}
       <p class="text-xs text-gray-300 mt-1">${{ "%.2f"|format([item.limit - item.spent, 0]|max) }} remaining</p>
       {% endif %}
@@ -115,23 +115,23 @@
 {% endif %}
 
 <!-- ── Recent transactions ─────────────────────────────────────── -->
-<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm">
   <div class="px-6 pt-5 pb-1 flex items-center justify-between">
     <div class="flex items-center gap-2">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
       </svg>
-      <h2 class="font-bold text-pink-900">Recent Transactions</h2>
+      <h2 class="font-bold text-base-content">Recent Transactions</h2>
       <span class="badge badge-ghost badge-sm">{{ total_count }} total</span>
     </div>
-    <a href="{{ url_for('transactions') }}" class="text-sm text-pink-400 hover:text-pink-600 font-medium transition-colors">View all →</a>
+    <a href="{{ url_for('transactions') }}" class="text-sm text-primary/70 hover:text-primary font-medium transition-colors">View all →</a>
   </div>
 
   {% if transactions %}
   <div class="overflow-x-auto px-2 pb-4">
     <table class="table table-zebra table-sm w-full">
       <thead>
-        <tr class="text-xs uppercase tracking-wide text-gray-400 border-b border-pink-50">
+        <tr class="text-xs uppercase tracking-wide text-gray-400 border-b border-base-200/50">
           <th class="font-semibold py-3">Date</th>
           <th class="font-semibold">Category</th>
           <th class="font-semibold">Amount</th>
@@ -140,7 +140,7 @@
       </thead>
       <tbody>
         {% for t in transactions %}
-        <tr class="hover:bg-pink-50/50 border-b border-pink-50/50">
+        <tr class="hover:bg-base-200/50 border-b border-base-200/50">
           <td class="text-sm text-gray-400 whitespace-nowrap py-3">{{ t.date.strftime("%b %d, %Y") }}</td>
           <td>
             <span class="badge {{ cat_badge.get(t.category, 'badge-ghost') }} badge-sm font-medium">{{ t.category }}</span>
@@ -160,7 +160,7 @@
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
     </svg>
     <p class="font-medium text-gray-400">No transactions yet</p>
-    <a href="{{ url_for('transactions') }}" class="text-sm text-pink-400 hover:text-pink-600 mt-1 inline-block transition-colors">Add your first one →</a>
+    <a href="{{ url_for('transactions') }}" class="text-sm text-primary/70 hover:text-primary mt-1 inline-block transition-colors">Add your first one →</a>
   </div>
   {% endif %}
 

@@ -5,25 +5,25 @@
 
 <!-- Page header -->
 <div>
-  <h1 class="text-2xl font-bold text-pink-900">Budget Limits</h1>
-  <p class="text-pink-400 text-sm mt-0.5">Set monthly spending limits by category — {{ month_label }}</p>
+  <h1 class="text-2xl font-bold text-base-content">Budget Limits</h1>
+  <p class="text-primary/70 text-sm mt-0.5">Set monthly spending limits by category — {{ month_label }}</p>
 </div>
 
 <!-- ── Set limit form ──────────────────────────────────────────── -->
-<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm">
   <div class="px-6 pt-5 pb-2 flex items-center gap-2">
-    <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div class="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
       </svg>
     </div>
-    <h2 class="font-bold text-pink-900">Set a Limit</h2>
+    <h2 class="font-bold text-base-content">Set a Limit</h2>
   </div>
   <div class="px-6 pb-6">
     <form method="POST" action="{{ url_for('set_limit_route') }}" class="flex flex-wrap gap-3 items-end">
       <div class="form-control min-w-44 flex-1">
         <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Category</span></label>
-        <select name="category" required class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400">
+        <select name="category" required class="select select-bordered select-sm rounded-xl border-base-300 focus:border-primary">
           {% for cat in available_categories %}
           <option value="{{ cat }}">
             {{ cat }}{% if cat in current_limits %} — currently ${{ "%.0f"|format(current_limits[cat]) }}/mo{% endif %}
@@ -33,7 +33,7 @@
       </div>
       <div class="form-control min-w-44 flex-1">
         <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Monthly limit</span></label>
-        <label class="input input-bordered input-sm flex items-center gap-1 rounded-xl border-pink-200 focus-within:border-pink-400">
+        <label class="input input-bordered input-sm flex items-center gap-1 rounded-xl border-base-300 focus-within:border-primary">
           <span class="text-gray-300">$</span>
           <input type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required class="grow bg-transparent" />
           <span class="text-gray-300 text-xs">/mo</span>
@@ -45,14 +45,14 @@
 </div>
 
 <!-- ── Current limits ──────────────────────────────────────────── -->
-<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm">
   <div class="px-6 pt-5 pb-4 flex items-center justify-between">
     <div class="flex items-center gap-2">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
       </svg>
-      <h2 class="font-bold text-pink-900">Current Limits</h2>
-      <span class="text-sm text-pink-300">— {{ month_label }}</span>
+      <h2 class="font-bold text-base-content">Current Limits</h2>
+      <span class="text-sm text-base-content/30">— {{ month_label }}</span>
     </div>
     {% if budget_data %}
     <span class="badge badge-ghost badge-sm">{{ budget_data|length }} active</span>
@@ -62,7 +62,7 @@
   {% if budget_data %}
   <div class="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
     {% for item in budget_data %}
-    <div class="rounded-xl bg-rose-50/60 border border-pink-100 p-4">
+    <div class="rounded-xl bg-base-200/50 border border-base-200 p-4">
       <div class="flex justify-between items-start mb-3">
         <div>
           <div class="flex items-center gap-2">
@@ -93,7 +93,7 @@
         {% if item.bar_class == 'progress-error' %}
         <span class="text-red-400 font-medium">Over budget by ${{ "%.2f"|format(item.spent - item.limit) }}</span>
         {% elif item.bar_class == 'progress-warning' %}
-        <span class="text-yellow-500">{{ "%.0f"|format(item.pct) }}% used — approaching limit</span>
+        <span class="text-warning">{{ "%.0f"|format(item.pct) }}% used — approaching limit</span>
         {% else %}
         <span class="text-gray-300">${{ "%.2f"|format([item.limit - item.spent, 0]|max) }} remaining this month</span>
         {% endif %}

@@ -5,12 +5,12 @@
 
 <!-- Page header -->
 <div>
-  <h1 class="text-2xl font-bold text-pink-900">Export</h1>
-  <p class="text-pink-400 text-sm mt-0.5">Download your transaction history as a CSV file</p>
+  <h1 class="text-2xl font-bold text-base-content">Export</h1>
+  <p class="text-primary/70 text-sm mt-0.5">Download your transaction history as a CSV file</p>
 </div>
 
 <div class="max-w-lg">
-  <div class="rounded-2xl border border-pink-100 bg-white shadow-sm p-6 space-y-6">
+  <div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm p-6 space-y-6">
 
     <form method="GET" action="{{ url_for('export_download') }}" class="space-y-5">
 
@@ -21,7 +21,7 @@
             <span class="label-text-alt text-gray-300">optional</span>
           </label>
           <input type="date" name="from_date" value="{{ default_from }}"
-            class="input input-bordered rounded-xl border-pink-200 focus:border-pink-400" />
+            class="input input-bordered rounded-xl border-base-300 focus:border-primary" />
         </div>
         <div class="form-control">
           <label class="label py-1">
@@ -29,12 +29,12 @@
             <span class="label-text-alt text-gray-300">optional</span>
           </label>
           <input type="date" name="to_date" value="{{ default_to }}"
-            class="input input-bordered rounded-xl border-pink-200 focus:border-pink-400" />
+            class="input input-bordered rounded-xl border-base-300 focus:border-primary" />
         </div>
       </div>
 
-      <div class="rounded-xl bg-rose-50 border border-pink-100 p-4">
-        <p class="text-xs font-semibold uppercase tracking-wider text-pink-400 mb-2">CSV format preview</p>
+      <div class="rounded-xl bg-base-200/50 border border-base-200 p-4">
+        <p class="text-xs font-semibold uppercase tracking-wider text-primary/70 mb-2">CSV format preview</p>
         <div class="font-mono text-xs text-gray-400 space-y-1">
           <div class="text-gray-500 font-semibold">date,category,amount,note</div>
           <div>2026-06-01,income,3200.00,Salary</div>

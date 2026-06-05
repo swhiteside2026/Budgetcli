@@ -5,27 +5,27 @@
 
 <!-- Page header -->
 <div>
-  <h1 class="text-2xl font-bold text-pink-900">Recurring Transactions</h1>
-  <p class="text-pink-400 text-sm mt-0.5">Schedule weekly, bi-weekly, monthly, or annual transactions</p>
+  <h1 class="text-2xl font-bold text-base-content">Recurring Transactions</h1>
+  <p class="text-primary/70 text-sm mt-0.5">Schedule weekly, bi-weekly, monthly, or annual transactions</p>
 </div>
 
 <!-- ── Top row: apply card + add form ─────────────────────────── -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
   <!-- Apply due -->
-  <div class="rounded-2xl border border-pink-100 bg-white shadow-sm p-6">
+  <div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm p-6">
     <div class="flex items-center gap-2 mb-2">
-      <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div class="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </div>
-      <h2 class="font-bold text-pink-900">Apply Recurring</h2>
+      <h2 class="font-bold text-base-content">Apply Recurring</h2>
     </div>
 
     {% if due_count > 0 %}
     <p class="text-sm text-gray-500 mb-4">
-      <span class="font-bold text-pink-500">{{ due_count }}</span>
+      <span class="font-bold text-primary">{{ due_count }}</span>
       transaction{{ "s" if due_count != 1 else "" }} due as of {{ today.strftime("%B %d, %Y") }}.
     </p>
     {% else %}
@@ -42,26 +42,26 @@
   </div>
 
   <!-- Add recurring form -->
-  <div class="rounded-2xl border border-pink-100 bg-white shadow-sm p-6 lg:col-span-2">
+  <div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm p-6 lg:col-span-2">
     <div class="flex items-center gap-2 mb-4">
-      <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div class="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
       </div>
-      <h2 class="font-bold text-pink-900">Add Recurring Transaction</h2>
+      <h2 class="font-bold text-base-content">Add Recurring Transaction</h2>
     </div>
     <form method="POST" action="{{ url_for('add_recurring_route') }}" class="flex flex-wrap gap-3 items-end">
       <div class="form-control min-w-32 flex-1">
         <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Amount</span></label>
-        <label class="input input-bordered input-sm flex items-center gap-1 rounded-xl border-pink-200 focus-within:border-pink-400">
+        <label class="input input-bordered input-sm flex items-center gap-1 rounded-xl border-base-300 focus-within:border-primary">
           <span class="text-gray-300">$</span>
           <input type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required class="grow bg-transparent" />
         </label>
       </div>
       <div class="form-control min-w-36 flex-1">
         <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Category</span></label>
-        <select name="category" required class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400">
+        <select name="category" required class="select select-bordered select-sm rounded-xl border-base-300 focus:border-primary">
           {% for cat in categories %}
           <option value="{{ cat }}">{{ cat }}</option>
           {% endfor %}
@@ -69,7 +69,7 @@
       </div>
       <div class="form-control flex-shrink-0">
         <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Frequency</span></label>
-        <select name="frequency" class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400">
+        <select name="frequency" class="select select-bordered select-sm rounded-xl border-base-300 focus:border-primary">
           {% for freq in valid_frequencies %}
           <option value="{{ freq }}">{{ freq | capitalize }}</option>
           {% endfor %}
@@ -81,14 +81,14 @@
           <span class="label-text-alt text-gray-300">optional</span>
         </label>
         <input type="date" name="effective_date"
-               class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400 w-36" />
+               class="input input-bordered input-sm rounded-xl border-base-300 focus:border-primary w-36" />
       </div>
       <div class="form-control min-w-44 flex-2">
         <label class="label py-1">
           <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Note</span>
           <span class="label-text-alt text-gray-300">optional</span>
         </label>
-        <input type="text" name="note" placeholder="e.g. Netflix, Rent, Salary" maxlength="200" class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400" />
+        <input type="text" name="note" placeholder="e.g. Netflix, Rent, Salary" maxlength="200" class="input input-bordered input-sm rounded-xl border-base-300 focus:border-primary" />
       </div>
       <button type="submit" class="btn btn-primary btn-sm rounded-xl px-6">Add</button>
     </form>
@@ -98,19 +98,19 @@
 
 {% if upcoming_recurring %}
 <!-- ── Upcoming (future effective date) ────────────────────────── -->
-<div class="rounded-2xl border border-blue-100 bg-blue-50/60 shadow-sm">
+<div class="rounded-2xl border border-info/20 bg-info/10 shadow-sm">
   <div class="px-6 pt-5 pb-1 flex items-center gap-2">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-info/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
     </svg>
-    <h2 class="font-bold text-blue-900">Upcoming</h2>
+    <h2 class="font-bold text-base-content">Upcoming</h2>
     <span class="badge badge-ghost badge-sm">{{ upcoming_recurring|length }}</span>
-    <span class="text-xs text-blue-400 ml-1">scheduled to start in the future</span>
+    <span class="text-xs text-info/70 ml-1">scheduled to start in the future</span>
   </div>
   <div class="overflow-x-auto px-2 pb-4">
     <table class="table table-sm w-full">
       <thead>
-        <tr class="text-xs uppercase tracking-wide text-blue-300 border-b border-blue-100">
+        <tr class="text-xs uppercase tracking-wide text-info/50 border-b border-info/20">
           <th class="font-semibold py-3">Category</th>
           <th class="font-semibold">Amount</th>
           <th class="font-semibold">Frequency</th>
@@ -121,18 +121,18 @@
       </thead>
       <tbody>
         {% for idx, rt in upcoming_recurring %}
-        <tr class="hover:bg-blue-50 border-b border-blue-50 group">
+        <tr class="hover:bg-info/10 border-b border-info/20 group">
           <td class="py-3">
             <span class="badge {{ cat_badge.get(rt.category, 'badge-ghost') }} badge-sm font-medium">{{ rt.category }}</span>
           </td>
           <td class="font-mono font-semibold {{ 'text-emerald-600' if rt.category|lower == 'income' else 'text-red-500' }} whitespace-nowrap">
             {{ "+" if rt.category|lower == 'income' else "−" }}${{ "%.2f"|format(rt.amount) }}
           </td>
-          <td class="text-sm text-blue-400 capitalize">{{ rt.frequency }}</td>
-          <td class="text-sm text-blue-500 font-medium whitespace-nowrap">
+          <td class="text-sm text-info/70 capitalize">{{ rt.frequency }}</td>
+          <td class="text-sm text-info font-medium whitespace-nowrap">
             {{ rt.effective_date.strftime("%b %d, %Y") }}
           </td>
-          <td class="text-sm text-blue-400 max-w-xs truncate">{{ rt.note or "—" }}</td>
+          <td class="text-sm text-info/70 max-w-xs truncate">{{ rt.note or "—" }}</td>
           <td class="opacity-0 group-hover:opacity-100 transition-opacity">
             <form method="POST" action="{{ url_for('delete_recurring_route', idx=idx) }}" class="inline">
               <button type="submit"
@@ -151,12 +151,12 @@
 {% endif %}
 
 <!-- ── Active recurring list ───────────────────────────────────── -->
-<div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm">
   <div class="px-6 pt-5 pb-1 flex items-center gap-2">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
     </svg>
-    <h2 class="font-bold text-pink-900">Active Recurring</h2>
+    <h2 class="font-bold text-base-content">Active Recurring</h2>
     <span class="badge badge-ghost badge-sm">{{ active_recurring|length }}</span>
   </div>
 
@@ -164,7 +164,7 @@
   <div class="overflow-x-auto px-2 pb-4">
     <table class="table table-sm w-full">
       <thead>
-        <tr class="text-xs uppercase tracking-wide text-gray-400 border-b border-pink-50">
+        <tr class="text-xs uppercase tracking-wide text-gray-400 border-b border-base-200/50">
           <th class="font-semibold py-3">Category</th>
           <th class="font-semibold">Amount</th>
           <th class="font-semibold">Frequency</th>
@@ -177,7 +177,7 @@
       </thead>
       <tbody>
         {% for idx, rt, is_due, next_due in active_recurring %}
-        <tr class="hover:bg-pink-50/40 border-b border-pink-50/50 group">
+        <tr class="hover:bg-base-200/40 border-b border-base-200/50 group">
           <td class="py-3">
             <span class="badge {{ cat_badge.get(rt.category, 'badge-ghost') }} badge-sm font-medium">{{ rt.category }}</span>
           </td>

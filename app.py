@@ -18,11 +18,14 @@ app = Flask(__name__)
 app.secret_key = "budgetcli-dev-secret"
 
 THEMES = [
-    ("cupcake", "Pink",   "#ec4899"),
-    ("dark",    "Dark",   "#1d232a"),
-    ("nord",    "Blue",   "#5e81ac"),
-    ("forest",  "Green",  "#1eb854"),
-    ("dracula", "Purple", "#bd93f9"),
+    ("corporate", "Corporate", "#1b6fd0"),
+    ("nord",      "Nord",      "#5e81ac"),
+    ("dracula",   "Dracula",   "#bd93f9"),
+    ("emerald",   "Emerald",   "#47c272"),
+    ("synthwave", "Synthwave", "#e779c1"),
+    ("luxury",    "Luxury",    "#cca918"),
+    ("valentine", "Valentine", "#e96d7b"),
+    ("coffee",    "Coffee",    "#db924b"),
 ]
 _VALID_THEMES = {t[0] for t in THEMES}
 
@@ -147,7 +150,7 @@ def _budget_data(
 
 @app.context_processor
 def inject_globals() -> dict:
-    current_theme = session.get("theme", "cupcake")
+    current_theme = session.get("theme", "corporate")
     base: dict = {
         "current_theme": current_theme,
         "themes": THEMES,
@@ -282,7 +285,7 @@ def reset_password():
 
 @app.route("/theme/set", methods=["POST"])
 def set_theme():
-    theme = request.form.get("theme", "cupcake")
+    theme = request.form.get("theme", "corporate")
     if theme in _VALID_THEMES:
         session["theme"] = theme
     return redirect(request.referrer or url_for("dashboard"))
@@ -494,7 +497,7 @@ def save_profile_route():
 @app.route("/settings/theme-preference", methods=["POST"])
 @login_required
 def save_theme_preference_route():
-    theme = request.form.get("theme", "cupcake")
+    theme = request.form.get("theme", "corporate")
     if theme not in _VALID_THEMES:
         flash("Invalid theme selection.", "error")
         return redirect(url_for("settings"))

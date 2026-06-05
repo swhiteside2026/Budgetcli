@@ -36,6 +36,15 @@
         </svg>
       </label>
       <span class="text-lg font-bold tracking-tight flex-1">BudgetBalancer</span>
+      <a href="{{ url_for('notifications') }}"
+         class="btn btn-ghost btn-circle text-primary-content relative">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.437L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        {% if unread_notifications > 0 %}
+        <span class="badge badge-xs badge-neutral absolute -top-0.5 -right-0.5 font-bold">{{ unread_notifications }}</span>
+        {% endif %}
+      </a>
     </nav>
 
     <!-- Flash messages -->
@@ -120,6 +129,33 @@
         </a>
         {% endfor %}
 
+        <!-- Notifications -->
+        {% set is_notif_active = request.endpoint == 'notifications' %}
+        <a href="{{ url_for('notifications') }}"
+           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
+                  {{ 'bg-primary text-primary-content shadow-sm' if is_notif_active
+                     else 'text-base-content/70 hover:bg-base-300 hover:text-base-content' }}">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.437L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          Notifications
+          {% if unread_notifications > 0 %}
+          <span class="badge badge-sm ml-auto {{ 'badge-ghost' if is_notif_active else 'badge-primary' }}">
+            {{ unread_notifications }}
+          </span>
+          {% endif %}
+        </a>
+
+        <!-- Voice Control -->
+        <button onclick="openVoiceModal()"
+                class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition-all
+                       text-base-content/70 hover:bg-base-300 hover:text-base-content">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+          </svg>
+          Voice
+        </button>
+
         <!-- Logout -->
         <div class="pt-2 mt-1 border-t border-base-300">
           <form method="POST" action="{{ url_for('logout') }}">
@@ -165,5 +201,366 @@
   </div><!-- /drawer-side -->
 
 </div><!-- /drawer -->
+
+<!-- ── Voice Control Modal ────────────────────────────────────── -->
+<dialog id="voice_modal" class="modal">
+  <div class="modal-box rounded-2xl border border-pink-100 shadow-xl max-w-sm">
+    <h3 class="font-bold text-lg text-pink-900 mb-5 flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+      </svg>
+      Voice Control
+    </h3>
+
+    <!-- Unsupported browser message -->
+    <div id="voice_unsupported" class="hidden">
+      <div role="alert" class="alert alert-warning rounded-xl text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span>Voice control requires Chrome or Edge — Firefox and Safari don't support the Web Speech API.</span>
+      </div>
+    </div>
+
+    <!-- Supported UI -->
+    <div id="voice_supported">
+      <!-- Mic button -->
+      <div class="flex justify-center mb-5">
+        <div class="relative flex items-center justify-center">
+          <span id="mic_ring" class="hidden absolute w-28 h-28 rounded-full bg-primary opacity-20 animate-ping"></span>
+          <button id="mic_btn" onclick="toggleListening()"
+                  class="relative btn btn-outline btn-primary rounded-full w-20 h-20 flex flex-col items-center justify-center gap-1 border-2 transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+            <span id="mic_label" class="text-xs font-medium leading-none">Speak</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Live transcript -->
+      <p id="voice_transcript" class="text-center text-sm text-gray-400 italic min-h-5 mb-3 px-2"></p>
+
+      <!-- Feedback area -->
+      <div id="voice_feedback" class="min-h-5 mb-4"></div>
+
+      <!-- Confirmation panel (hidden until a parseable command is heard) -->
+      <div id="voice_confirm" class="hidden rounded-xl border border-pink-200 bg-pink-50/60 p-4 mb-4">
+        <p id="confirm_text" class="font-semibold text-gray-800 text-sm mb-3 text-center"></p>
+        <div class="flex gap-2">
+          <button id="voice_confirm_btn" onclick="confirmVoiceAdd()" class="btn btn-primary btn-sm rounded-xl flex-1">Confirm</button>
+          <button onclick="cancelVoiceAdd()" class="btn btn-ghost btn-sm rounded-xl flex-1">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Command hints -->
+      <p class="text-xs text-gray-400 text-center">
+        Try: <span class="font-medium text-gray-500">"add 12 to food"</span>
+        &nbsp;·&nbsp;
+        <span class="font-medium text-gray-500">"summary"</span>
+      </p>
+    </div>
+
+    <div class="modal-action mt-4">
+      <button onclick="closeVoiceModal()" class="btn btn-ghost btn-sm rounded-xl">Close</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Spoken-number lookup ───────────────────────────────────────
+  var NUM = {
+    zero:0, a:1, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9,
+    ten:10, eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15,
+    sixteen:16, seventeen:17, eighteen:18, nineteen:19,
+    twenty:20, thirty:30, forty:40, fifty:50, sixty:60, seventy:70, eighty:80, ninety:90,
+    hundred:100, thousand:1000
+  };
+
+  function wordsToNumber(str) {
+    str = str.replace(/[$,]/g, '').trim();
+    var direct = parseFloat(str);
+    if (!isNaN(direct)) return direct;
+    var words = str.toLowerCase().replace(/-/g, ' ').split(/\s+/);
+    // "twelve fifty" → $12.50
+    if (words.length === 2 && NUM[words[0]] !== undefined && NUM[words[1]] !== undefined) {
+      var a = NUM[words[0]], b = NUM[words[1]];
+      if (a >= 1 && a <= 99 && b >= 1 && b < a) {
+        return parseFloat(a + '.' + (b < 10 ? '0' + b : b));
+      }
+    }
+    var total = 0, cur = 0;
+    for (var i = 0; i < words.length; i++) {
+      var w = words[i];
+      if (/^(and|dollars?|bucks?|cents?)$/.test(w)) continue;
+      var val = NUM[w];
+      if (val === undefined) { var n = parseFloat(w); if (!isNaN(n)) cur += n; continue; }
+      if (val === 100) { cur = cur === 0 ? 100 : cur * 100; }
+      else if (val === 1000) { total += (cur === 0 ? 1 : cur) * 1000; cur = 0; }
+      else { cur += val; }
+    }
+    total += cur;
+    return total > 0 ? total : NaN;
+  }
+
+  // ── Category matching ──────────────────────────────────────────
+  function matchCategory(spoken, cats) {
+    if (!spoken || !cats.length) return null;
+    var s = spoken.toLowerCase().trim();
+    var f;
+    f = cats.find(function(c){ return c.toLowerCase() === s; }); if (f) return f;
+    f = cats.find(function(c){ return c.toLowerCase().startsWith(s); }); if (f) return f;
+    f = cats.find(function(c){ return s.startsWith(c.toLowerCase()); }); if (f) return f;
+    f = cats.find(function(c){ return c.toLowerCase().includes(s) || s.includes(c.toLowerCase()); }); if (f) return f;
+    var words = s.split(/\s+/);
+    for (var i = 0; i < words.length; i++) {
+      if (words[i].length < 3) continue;
+      f = cats.find(function(c){ return c.toLowerCase().includes(words[i]); });
+      if (f) return f;
+    }
+    return null;
+  }
+
+  // ── Command parsing ────────────────────────────────────────────
+  function parseAdd(transcript, cats) {
+    var lower = transcript.toLowerCase();
+    if (!/\badd\b/.test(lower)) return null;
+    var rest = lower.replace(/^.*?\badd\b\s*/, '').replace(/\b(the|a|an|my|some)\b/g, ' ').replace(/\s+/g, ' ').trim();
+    var patterns = [
+      /^(.+?)\s+(?:dollars?|bucks?)?\s*to\s+(.+)$/,
+      /^(.+?)\s+(?:dollars?|bucks?)\s+(.+)$/,
+      /^(.+?)\s+to\s+(.+)$/,
+      /^(\d[\d.,]*)\s+(.+)$/,
+    ];
+    for (var i = 0; i < patterns.length; i++) {
+      var m = rest.match(patterns[i]);
+      if (!m) continue;
+      var amtStr = m[1].trim();
+      var catStr = m[2].trim().replace(/\s*(?:spending|budget|expense|category)s?\s*$/, '');
+      var amount = wordsToNumber(amtStr);
+      if (isNaN(amount) || amount <= 0 || amount > 999999) continue;
+      var cat = matchCategory(catStr, cats);
+      if (cat) return { amount: amount, category: cat };
+    }
+    return null;
+  }
+
+  function isSummary(t) {
+    return /\b(summary|budget|status|spending|how am i|how.?m i|what.?s|tell me|overview|report|balance)\b/i.test(t);
+  }
+
+  // ── State ──────────────────────────────────────────────────────
+  var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var supported = !!SpeechRec;
+  var recognition = null;
+  var listening = false;
+  var pendingTx = null;
+  var voiceCtx = null;
+  var lastSubmit = { key: null, ts: 0 };
+
+  // ── Speech synthesis ───────────────────────────────────────────
+  function speak(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.0;
+    window.speechSynthesis.speak(u);
+  }
+
+  // ── DOM helpers ────────────────────────────────────────────────
+  function el(id) { return document.getElementById(id); }
+
+  function setTranscript(text) {
+    var e = el('voice_transcript'); if (e) e.textContent = text || '';
+  }
+
+  function setFeedback(text, type) {
+    var e = el('voice_feedback');
+    if (!e) return;
+    if (!text) { e.textContent = ''; e.className = 'min-h-5 mb-4'; return; }
+    e.textContent = text;
+    var cls = { success:'text-sm font-semibold text-emerald-600', error:'text-sm font-semibold text-red-500', info:'text-sm text-gray-600' };
+    e.className = 'min-h-5 mb-4 rounded-xl p-3 bg-base-200 ' + (cls[type] || cls.info);
+  }
+
+  function setMicState(on) {
+    listening = on;
+    var btn = el('mic_btn'), ring = el('mic_ring'), lbl = el('mic_label');
+    if (!btn) return;
+    if (on) {
+      btn.classList.remove('btn-outline'); btn.classList.add('btn-primary');
+      ring && ring.classList.remove('hidden');
+      lbl && (lbl.textContent = 'Listening…');
+    } else {
+      btn.classList.add('btn-outline'); btn.classList.remove('btn-primary');
+      ring && ring.classList.add('hidden');
+      lbl && (lbl.textContent = 'Speak');
+    }
+  }
+
+  function showConfirm(amount, category) {
+    pendingTx = { amount: amount, category: category };
+    var ct = el('confirm_text');
+    if (ct) ct.textContent = 'Add $' + amount.toFixed(2) + ' to ' + category + '?';
+    var cp = el('voice_confirm'); if (cp) cp.classList.remove('hidden');
+  }
+
+  function hideConfirm() {
+    pendingTx = null;
+    var cp = el('voice_confirm'); if (cp) cp.classList.add('hidden');
+  }
+
+  // ── Data fetching ──────────────────────────────────────────────
+  async function loadCtx() {
+    try { var r = await fetch('/api/voice-context'); voiceCtx = await r.json(); return voiceCtx; }
+    catch(e) { return null; }
+  }
+
+  function buildSummary(ctx) {
+    var parts = [ctx.month_label + ': income $' + ctx.income.toFixed(2) + ', expenses $' + ctx.expenses.toFixed(2) + '.'];
+    parts.push(ctx.savings >= 0 ? 'You saved $' + ctx.savings.toFixed(2) + '.' : 'You overspent by $' + Math.abs(ctx.savings).toFixed(2) + '.');
+    if (ctx.budget_data && ctx.budget_data.length) {
+      ctx.budget_data.forEach(function(item) {
+        var st = {OVER:'over budget', NEAR:'near limit', OK:'on track'}[item.status] || item.status;
+        parts.push(item.category.charAt(0).toUpperCase() + item.category.slice(1) + ': $' + item.spent.toFixed(2) + ' of $' + item.limit.toFixed(2) + ', ' + st + '.');
+      });
+    }
+    return parts.join(' ');
+  }
+
+  // ── Command handler ────────────────────────────────────────────
+  async function handle(transcript) {
+    var cats = voiceCtx ? voiceCtx.categories : [];
+    if (!cats.length) { var c = await loadCtx(); cats = c ? c.categories : []; }
+
+    var add = parseAdd(transcript, cats);
+    if (add) {
+      var msg = 'Add $' + add.amount.toFixed(2) + ' to ' + add.category + '? Please confirm.';
+      setFeedback(msg, 'info');
+      speak('Add ' + add.amount.toFixed(2) + ' dollars to ' + add.category + '? Please confirm.');
+      showConfirm(add.amount, add.category);
+      return;
+    }
+
+    if (isSummary(transcript)) {
+      var ctx = await loadCtx();
+      if (!ctx) { setFeedback('Could not load summary. Please try again.', 'error'); speak('Could not load your summary.'); return; }
+      var s = buildSummary(ctx);
+      setFeedback(s, 'info');
+      speak(s);
+      return;
+    }
+
+    var err = "I didn’t understand. Try “add 12 to food” or “summary”.";
+    setFeedback(err, 'error');
+    speak("I didn't understand. Try add 12 to food, or say summary.");
+  }
+
+  // ── Confirm / Cancel ───────────────────────────────────────────
+  window.confirmVoiceAdd = async function() {
+    if (!pendingTx) return;
+    var tx = pendingTx;
+
+    // Block same amount+category submitted within 2 s (handles queued double-click)
+    var submitKey = tx.amount + ':' + tx.category;
+    var now = Date.now();
+    if (lastSubmit.key === submitKey && now - lastSubmit.ts < 2000) return;
+    lastSubmit = { key: submitKey, ts: now };
+
+    // Disable button before the first await so any in-flight click is a no-op
+    var btn = el('voice_confirm_btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+    hideConfirm();
+    try {
+      var r = await fetch('/api/voice-add', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ amount: tx.amount, category: tx.category })
+      });
+      var data = await r.json();
+      if (data.ok) {
+        var msg = 'Added $' + tx.amount.toFixed(2) + ' to ' + tx.category + '.';
+        setFeedback(msg, 'success'); speak(msg); setTranscript('');
+      } else {
+        setFeedback('Error: ' + (data.error || 'Unknown error'), 'error');
+        speak('There was an error adding the transaction.');
+      }
+    } catch(e) { setFeedback('Network error. Please try again.', 'error'); speak('Network error.'); }
+    finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Confirm'; }
+    }
+  };
+
+  window.cancelVoiceAdd = function() {
+    hideConfirm(); setFeedback('Cancelled.', 'info'); speak('Cancelled.');
+  };
+
+  // ── SpeechRecognition setup ────────────────────────────────────
+  if (SpeechRec) {
+    recognition = new SpeechRec();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    recognition.onstart = function() { setMicState(true); };
+    recognition.onend   = function() { setMicState(false); };
+    recognition.onresult = function(event) {
+      var interim = '', final_ = '';
+      for (var i = event.resultIndex; i < event.results.length; i++) {
+        var t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) final_ += t; else interim += t;
+      }
+      var cur = final_ || interim;
+      if (cur) setTranscript('“' + cur + '”');
+      if (final_) handle(final_.trim());
+    };
+    recognition.onerror = function(ev) {
+      setMicState(false);
+      var msgs = {
+        'not-allowed': 'Microphone permission denied. Please allow mic access in your browser settings.',
+        'no-speech':   'No speech detected. Tap the button and try again.'
+      };
+      setFeedback(msgs[ev.error] || 'Mic error: ' + ev.error + '. Please try again.', ev.error === 'no-speech' ? 'info' : 'error');
+    };
+  }
+
+  window.toggleListening = function() {
+    if (!recognition) return;
+    if (listening) { recognition.stop(); }
+    else { hideConfirm(); setFeedback('',''); setTranscript(''); try { recognition.start(); } catch(e) {} }
+  };
+
+  // ── Modal lifecycle ────────────────────────────────────────────
+  window.openVoiceModal = function() {
+    var modal = el('voice_modal'); if (!modal) return;
+    if (!supported) {
+      el('voice_unsupported').classList.remove('hidden');
+      el('voice_supported').classList.add('hidden');
+    } else {
+      el('voice_unsupported').classList.add('hidden');
+      el('voice_supported').classList.remove('hidden');
+      loadCtx();
+    }
+    modal.showModal();
+  };
+
+  window.closeVoiceModal = function() {
+    if (listening && recognition) recognition.stop();
+    hideConfirm(); setFeedback('',''); setTranscript('');
+    var modal = el('voice_modal'); if (modal) modal.close();
+  };
+
+  var _vm = el('voice_modal');
+  if (_vm) _vm.addEventListener('close', function() {
+    if (listening && recognition) recognition.stop();
+    hideConfirm();
+  });
+
+})();
+</script>
+
 </body>
 </html>

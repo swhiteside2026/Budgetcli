@@ -1,6 +1,7 @@
 import csv
 import json
-from datetime import date
+import secrets
+from datetime import date, datetime
 from pathlib import Path
 
 from budgetcli.models import RecurringTransaction, Transaction
@@ -268,4 +269,53 @@ class Storage:
     def save_alert_threshold(self, threshold: int) -> None:
         raw = _read_raw(self._path)
         raw["alert_threshold"] = threshold
+        self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
+    def load_notifications(self) -> list[dict]:
+        return _read_raw(self._path).get("notifications", [])
+
+    def save_notifications(self, notifications: list[dict]) -> None:
+        raw = _read_raw(self._path)
+        raw["notifications"] = notifications
+        self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
+    def add_notification(self, message: str, notif_type: str, category: str = "") -> dict | None:
+        """Append a notification, deduplicating against existing unread ones for the same category.
+
+        Returns the new notification dict if it was inserted, or None if it was suppressed by
+        the dedup logic (so callers can tell whether something actually fired).
+        """
+        raw = _read_raw(self._path)
+        notifications = raw.get("notifications", [])
+        if category:
+            for n in notifications:
+                if n.get("read") or n.get("category") != category:
+                    continue
+                n_type = n.get("type", "")
+                if notif_type == "near" and n_type in ("near", "over"):
+                    return None
+                if notif_type == "over" and n_type == "over":
+                    return None
+        new_notif = {
+            "id": secrets.token_hex(8),
+            "message": message,
+            "type": notif_type,
+            "category": category,
+            "read": False,
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        notifications.insert(0, new_notif)
+        raw["notifications"] = notifications[:50]
+        self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+        return new_notif
+
+    def mark_all_read(self) -> None:
+        raw = _read_raw(self._path)
+        for n in raw.get("notifications", []):
+            n["read"] = True
+        self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
+    def delete_notification(self, notif_id: str) -> None:
+        raw = _read_raw(self._path)
+        raw["notifications"] = [n for n in raw.get("notifications", []) if n.get("id") != notif_id]
         self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")

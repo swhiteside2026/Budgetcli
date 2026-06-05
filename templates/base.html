@@ -41,9 +41,9 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.437L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
-        {% if unread_notifications > 0 %}
-        <span class="badge badge-xs badge-neutral absolute -top-0.5 -right-0.5 font-bold">{{ unread_notifications }}</span>
-        {% endif %}
+        <span id="bell-badge-mobile"
+              class="badge badge-xs badge-neutral absolute -top-0.5 -right-0.5 font-bold"
+              style="{{ 'display:none' if unread_notifications == 0 else '' }}">{{ unread_notifications or '' }}</span>
       </a>
     </nav>
 
@@ -139,11 +139,9 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.437L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
           Notifications
-          {% if unread_notifications > 0 %}
-          <span class="badge badge-sm ml-auto {{ 'badge-ghost' if is_notif_active else 'badge-primary' }}">
-            {{ unread_notifications }}
-          </span>
-          {% endif %}
+          <span id="bell-badge-sidebar"
+                class="badge badge-sm ml-auto {{ 'badge-ghost' if is_notif_active else 'badge-primary' }}"
+                style="{{ 'display:none' if unread_notifications == 0 else '' }}">{{ unread_notifications or '' }}</span>
         </a>
 
         <!-- Voice Control -->
@@ -201,6 +199,69 @@
   </div><!-- /drawer-side -->
 
 </div><!-- /drawer -->
+
+<!-- ── Budget Alert Popup Stack ──────────────────────────────── -->
+<div id="budget-alert-stack"
+     class="fixed top-4 inset-x-0 z-50 flex flex-col items-center gap-2 pointer-events-none px-4">
+  {% for alert in budget_alerts %}
+  <div id="balert-{{ alert.id }}"
+       role="alert"
+       class="alert {{ 'alert-error' if alert.type == 'over' else 'alert-warning' }} shadow-lg rounded-2xl max-w-sm w-full pointer-events-auto flex items-start gap-3">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      {% if alert.type == 'over' %}
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      {% else %}
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      {% endif %}
+    </svg>
+    <span class="flex-1 text-sm font-medium">{{ alert.message }}</span>
+    <button class="btn btn-ghost btn-xs btn-circle flex-shrink-0"
+            onclick="dismissBudgetAlert('{{ alert.id }}')"
+            aria-label="Dismiss">✕</button>
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+function dismissBudgetAlert(id) {
+  var el = document.getElementById('balert-' + id);
+  if (el) el.remove();
+}
+
+function showBudgetAlerts(alerts) {
+  var stack = document.getElementById('budget-alert-stack');
+  if (!stack || !alerts || !alerts.length) return;
+  alerts.forEach(function(alert) {
+    if (document.getElementById('balert-' + alert.id)) return; // already shown
+    var isOver = alert.type === 'over';
+    var iconPath = isOver
+      ? 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
+      : 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
+    var div = document.createElement('div');
+    div.id = 'balert-' + alert.id;
+    div.setAttribute('role', 'alert');
+    div.className = 'alert ' + (isOver ? 'alert-error' : 'alert-warning') +
+      ' shadow-lg rounded-2xl max-w-sm w-full pointer-events-auto flex items-start gap-3';
+    div.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">' +
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="' + iconPath + '" />' +
+      '</svg>' +
+      '<span class="flex-1 text-sm font-medium">' + alert.message + '</span>' +
+      '<button class="btn btn-ghost btn-xs btn-circle flex-shrink-0" ' +
+              'onclick="dismissBudgetAlert(\'' + alert.id + '\')" aria-label="Dismiss">✕</button>';
+    stack.appendChild(div);
+  });
+}
+
+function updateBellBadge(count) {
+  ['bell-badge-mobile', 'bell-badge-sidebar'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = count > 0 ? count : '';
+    el.style.display = count > 0 ? '' : 'none';
+  });
+}
+</script>
 
 <!-- ── Voice Control Modal ────────────────────────────────────── -->
 <dialog id="voice_modal" class="modal">
@@ -485,6 +546,10 @@
       if (data.ok) {
         var msg = 'Added $' + tx.amount.toFixed(2) + ' to ' + tx.category + '.';
         setFeedback(msg, 'success'); speak(msg); setTranscript('');
+        if (data.new_alerts && data.new_alerts.length) {
+          showBudgetAlerts(data.new_alerts);
+          updateBellBadge(data.unread_count);
+        }
       } else {
         setFeedback('Error: ' + (data.error || 'Unknown error'), 'error');
         speak('There was an error adding the transaction.');

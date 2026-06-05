@@ -78,8 +78,13 @@ def _check_and_notify_limits(
     year: int,
     month: int,
     near_threshold: float,
-) -> None:
-    """Create NEAR/OVER notifications for any budget category that has crossed a threshold."""
+) -> list[dict]:
+    """Create NEAR/OVER notifications for any budget category that has crossed a threshold.
+
+    Returns the list of notification dicts that were actually inserted (empty when all
+    were suppressed by the dedup logic or no threshold was crossed).
+    """
+    new_alerts: list[dict] = []
     spent = category_breakdown(transactions, year, month)
     for cat, limit in limits.items():
         if limit <= 0:
@@ -87,17 +92,22 @@ def _check_and_notify_limits(
         cat_spent = spent.get(cat, 0.0)
         pct = cat_spent / limit * 100
         if cat_spent > limit:
-            store.add_notification(
+            result = store.add_notification(
                 f"{cat.capitalize()} is over budget — "
                 f"${cat_spent:.2f} of ${limit:.2f} spent ({pct:.0f}%)",
                 "over", cat,
             )
         elif cat_spent >= limit * near_threshold:
-            store.add_notification(
+            result = store.add_notification(
                 f"{cat.capitalize()} is approaching its limit — "
                 f"${cat_spent:.2f} of ${limit:.2f} spent ({pct:.0f}%)",
                 "near", cat,
             )
+        else:
+            result = None
+        if result is not None:
+            new_alerts.append({"id": result["id"], "message": result["message"], "type": result["type"]})
+    return new_alerts
 
 
 def _all_categories() -> list[str]:
@@ -141,11 +151,17 @@ def inject_globals() -> dict:
         "current_user": session.get("username"),
     }
     if "username" not in session:
-        return {**base, "global_balance": 0, "global_balance_abs": 0, "unread_notifications": 0}
+        return {**base, "global_balance": 0, "global_balance_abs": 0,
+                "unread_notifications": 0, "budget_alerts": []}
     txns = g.store.load_transactions()
     bal = overall_balance(txns)
     unread = sum(1 for n in g.store.load_notifications() if not n.get("read"))
-    return {**base, "global_balance": bal, "global_balance_abs": abs(bal), "unread_notifications": unread}
+    # Pop any alerts queued by the previous POST so they show exactly once
+    budget_alerts: list[dict] = []
+    if "pending_budget_alerts" in session:
+        budget_alerts = session.pop("pending_budget_alerts")
+    return {**base, "global_balance": bal, "global_balance_abs": abs(bal),
+            "unread_notifications": unread, "budget_alerts": budget_alerts}
 
 
 # ── Auth routes ───────────────────────────────────────────────────────────────
@@ -324,10 +340,12 @@ def add_transaction_route():
         )
         g.store.add_transaction(txn)
         today = date.today()
-        _check_and_notify_limits(
+        new_alerts = _check_and_notify_limits(
             g.store, g.store.load_transactions(), g.store.load_limits(),
             today.year, today.month, g.store.load_alert_threshold() / 100,
         )
+        if new_alerts:
+            session["pending_budget_alerts"] = new_alerts
         flash("Transaction added.", "success")
     except (ValueError, KeyError) as e:
         flash(f"Error: {e}", "error")
@@ -579,10 +597,12 @@ def apply_recurring_route():
             applied += 1
     g.store.save_recurring(rec_list)
     if applied:
-        _check_and_notify_limits(
+        new_alerts = _check_and_notify_limits(
             g.store, g.store.load_transactions(), g.store.load_limits(),
             today.year, today.month, g.store.load_alert_threshold() / 100,
         )
+        if new_alerts:
+            session["pending_budget_alerts"] = new_alerts
     label = "success" if applied else "info"
     plural = "s" if applied != 1 else ""
     flash(f"Applied {applied} recurring transaction{plural}.", label)
@@ -979,10 +999,12 @@ def import_confirm():
 
     if saved:
         _today = date.today()
-        _check_and_notify_limits(
+        new_alerts = _check_and_notify_limits(
             g.store, g.store.load_transactions(), g.store.load_limits(),
             _today.year, _today.month, g.store.load_alert_threshold() / 100,
         )
+        if new_alerts:
+            session["pending_budget_alerts"] = new_alerts
         msg = f"Imported {saved} transaction{'s' if saved != 1 else ''}."
         if skipped:
             msg += f" {skipped} row{'s' if skipped != 1 else ''} skipped (invalid or empty)."
@@ -1039,11 +1061,12 @@ def voice_add_api():
         )
         g.store.add_transaction(txn)
         today = date.today()
-        _check_and_notify_limits(
+        new_alerts = _check_and_notify_limits(
             g.store, g.store.load_transactions(), g.store.load_limits(),
             today.year, today.month, g.store.load_alert_threshold() / 100,
         )
-        return jsonify({"ok": True})
+        unread_count = sum(1 for n in g.store.load_notifications() if not n.get("read"))
+        return jsonify({"ok": True, "new_alerts": new_alerts, "unread_count": unread_count})
     except (ValueError, KeyError, TypeError) as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 

@@ -6,7 +6,7 @@ import re
 from datetime import date, datetime
 from functools import wraps
 
-from flask import Flask, Response, flash, g, redirect, render_template, request, session, url_for
+from flask import Flask, Response, flash, g, jsonify, redirect, render_template, request, session, url_for
 
 from budgetcli import auth
 from budgetcli.mailer import send_password_reset
@@ -71,6 +71,35 @@ def _valid_phone(phone: str) -> bool:
     return 7 <= len(digits) <= 15
 
 
+def _check_and_notify_limits(
+    store: Storage,
+    transactions: list,
+    limits: dict,
+    year: int,
+    month: int,
+    near_threshold: float,
+) -> None:
+    """Create NEAR/OVER notifications for any budget category that has crossed a threshold."""
+    spent = category_breakdown(transactions, year, month)
+    for cat, limit in limits.items():
+        if limit <= 0:
+            continue
+        cat_spent = spent.get(cat, 0.0)
+        pct = cat_spent / limit * 100
+        if cat_spent > limit:
+            store.add_notification(
+                f"{cat.capitalize()} is over budget — "
+                f"${cat_spent:.2f} of ${limit:.2f} spent ({pct:.0f}%)",
+                "over", cat,
+            )
+        elif cat_spent >= limit * near_threshold:
+            store.add_notification(
+                f"{cat.capitalize()} is approaching its limit — "
+                f"${cat_spent:.2f} of ${limit:.2f} spent ({pct:.0f}%)",
+                "near", cat,
+            )
+
+
 def _all_categories() -> list[str]:
     custom = g.store.load_custom_categories()
     return VALID_CATEGORIES + [c for c in custom if c not in VALID_CATEGORIES]
@@ -112,10 +141,11 @@ def inject_globals() -> dict:
         "current_user": session.get("username"),
     }
     if "username" not in session:
-        return {**base, "global_balance": 0, "global_balance_abs": 0}
+        return {**base, "global_balance": 0, "global_balance_abs": 0, "unread_notifications": 0}
     txns = g.store.load_transactions()
     bal = overall_balance(txns)
-    return {**base, "global_balance": bal, "global_balance_abs": abs(bal)}
+    unread = sum(1 for n in g.store.load_notifications() if not n.get("read"))
+    return {**base, "global_balance": bal, "global_balance_abs": abs(bal), "unread_notifications": unread}
 
 
 # ── Auth routes ───────────────────────────────────────────────────────────────
@@ -293,6 +323,11 @@ def add_transaction_route():
             note=request.form.get("note", ""),
         )
         g.store.add_transaction(txn)
+        today = date.today()
+        _check_and_notify_limits(
+            g.store, g.store.load_transactions(), g.store.load_limits(),
+            today.year, today.month, g.store.load_alert_threshold() / 100,
+        )
         flash("Transaction added.", "success")
     except (ValueError, KeyError) as e:
         flash(f"Error: {e}", "error")
@@ -470,6 +505,30 @@ def save_alert_threshold_route():
     return redirect(url_for("settings"))
 
 
+# ── Notifications ────────────────────────────────────────────────────────────
+
+@app.route("/notifications")
+@login_required
+def notifications() -> str:
+    notifs = g.store.load_notifications()
+    g.store.mark_all_read()
+    return render_template("notifications.html", notifications=notifs)
+
+
+@app.route("/notifications/<notif_id>/delete", methods=["POST"])
+@login_required
+def delete_notification_route(notif_id: str):
+    g.store.delete_notification(notif_id)
+    return redirect(url_for("notifications"))
+
+
+@app.route("/notifications/clear", methods=["POST"])
+@login_required
+def clear_notifications_route():
+    g.store.save_notifications([])
+    return redirect(url_for("notifications"))
+
+
 # ── Recurring ─────────────────────────────────────────────────────────────────
 
 @app.route("/recurring")
@@ -519,6 +578,11 @@ def apply_recurring_route():
             rt.last_applied = today
             applied += 1
     g.store.save_recurring(rec_list)
+    if applied:
+        _check_and_notify_limits(
+            g.store, g.store.load_transactions(), g.store.load_limits(),
+            today.year, today.month, g.store.load_alert_threshold() / 100,
+        )
     label = "success" if applied else "info"
     plural = "s" if applied != 1 else ""
     flash(f"Applied {applied} recurring transaction{plural}.", label)
@@ -633,13 +697,81 @@ def delete_category_route(name: str):
 
 # ── Excel Import ──────────────────────────────────────────────────────────────
 
-def _parse_import_date(s: str) -> date:
-    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d", "%m-%d-%Y", "%d-%m-%Y"):
+def _parse_import_date(s: str, prefer_dmy: bool = False) -> date:
+    # ISO / year-first formats are always unambiguous
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    # Slash/dash-separated: order determined by caller's format preference
+    ordered = (
+        ["%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y", "%m-%d-%Y"]
+        if prefer_dmy
+        else ["%m/%d/%Y", "%m-%d-%Y", "%d/%m/%Y", "%d-%m-%Y"]
+    )
+    for fmt in ordered:
         try:
             return datetime.strptime(s, fmt).date()
         except ValueError:
             continue
     raise ValueError(f"Cannot parse date: {s!r}")
+
+
+def _analyse_date_column(values: list[str]) -> tuple[str, bool]:
+    """Scan raw date strings and infer whether the file uses MM/DD or DD/MM.
+
+    Returns (fmt, needs_user_choice).
+    fmt is 'mdy' (MM/DD/YYYY) or 'dmy' (DD/MM/YYYY).
+    needs_user_choice is True when auto-detection cannot resolve the format.
+    """
+    us_only = eu_only = uncertain = 0
+    for raw in values:
+        s = raw.strip()
+        if not s:
+            continue
+        # Year-first formats are unambiguous — don't affect the count
+        iso = False
+        for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+            try:
+                datetime.strptime(s, fmt)
+                iso = True
+                break
+            except ValueError:
+                pass
+        if iso:
+            continue
+        ok_us = ok_eu = False
+        for fmt in ("%m/%d/%Y", "%m-%d-%Y"):
+            try:
+                datetime.strptime(s, fmt)
+                ok_us = True
+                break
+            except ValueError:
+                pass
+        for fmt in ("%d/%m/%Y", "%d-%m-%Y"):
+            try:
+                datetime.strptime(s, fmt)
+                ok_eu = True
+                break
+            except ValueError:
+                pass
+        if ok_us and ok_eu:
+            uncertain += 1
+        elif ok_us:
+            us_only += 1
+        elif ok_eu:
+            eu_only += 1
+
+    # A single unambiguous value settles the whole column
+    if eu_only > 0 and us_only == 0:
+        return "dmy", False
+    if us_only > 0 and eu_only == 0:
+        return "mdy", False
+    # Conflict or no diagnostic values — need user input
+    if uncertain > 0 or (us_only > 0 and eu_only > 0):
+        return "mdy", True   # default to mdy; user must confirm
+    return "mdy", False
 
 
 @app.route("/import")
@@ -725,9 +857,27 @@ def import_upload():
             if h.lower().strip() in aliases and field not in detected:
                 detected[field] = i
 
+    # Analyse the date column so the preview step can flag ambiguous formats
+    date_col_idx = detected.get("date")
+    if date_col_idx is not None:
+        date_values = [
+            row[date_col_idx]
+            for row in data_rows
+            if date_col_idx < len(row)
+        ]
+        date_fmt, date_ambiguous = _analyse_date_column(date_values)
+    else:
+        date_fmt, date_ambiguous = "mdy", False
+
     temp_path = auth.user_data_path(session["username"]).parent / "import_temp.json"
     temp_path.write_text(
-        json.dumps({"headers": headers, "rows": data_rows, "detected": detected}),
+        json.dumps({
+            "headers": headers,
+            "rows": data_rows,
+            "detected": detected,
+            "date_fmt": date_fmt,
+            "date_ambiguous": date_ambiguous,
+        }),
         encoding="utf-8",
     )
 
@@ -751,6 +901,8 @@ def import_preview():
         total_rows=len(data["rows"]),
         detected=data["detected"],
         categories=_all_categories(),
+        date_fmt=data.get("date_fmt", "mdy"),
+        date_ambiguous=data.get("date_ambiguous", False),
     )
 
 
@@ -779,6 +931,7 @@ def import_confirm():
         flash("You must map both the Date and Amount columns.", "error")
         return redirect(url_for("import_preview"))
 
+    prefer_dmy = request.form.get("date_fmt", "mdy") == "dmy"
     default_category = request.form.get("default_category", "other")
     all_cats = _all_categories()
     if default_category not in all_cats:
@@ -808,7 +961,7 @@ def import_confirm():
                 skipped += 1
                 continue
 
-            txn_date = _parse_import_date(raw_date)
+            txn_date = _parse_import_date(raw_date, prefer_dmy=prefer_dmy)
             amount = abs(float(raw_amount))
             if amount == 0.0:
                 skipped += 1
@@ -825,6 +978,11 @@ def import_confirm():
     temp_path.unlink(missing_ok=True)
 
     if saved:
+        _today = date.today()
+        _check_and_notify_limits(
+            g.store, g.store.load_transactions(), g.store.load_limits(),
+            _today.year, _today.month, g.store.load_alert_threshold() / 100,
+        )
         msg = f"Imported {saved} transaction{'s' if saved != 1 else ''}."
         if skipped:
             msg += f" {skipped} row{'s' if skipped != 1 else ''} skipped (invalid or empty)."
@@ -836,6 +994,58 @@ def import_confirm():
         )
 
     return redirect(url_for("transactions"))
+
+
+# ── Voice API ─────────────────────────────────────────────────────────────────
+
+@app.route("/api/voice-context")
+@login_required
+def voice_context_api():
+    today = date.today()
+    transactions = g.store.load_transactions()
+    limits = g.store.load_limits()
+    income, expenses, savings = monthly_summary(transactions, today.year, today.month)
+    near_threshold = g.store.load_alert_threshold() / 100
+    budget_data = _budget_data(transactions, limits, today.year, today.month, near_threshold)
+    return jsonify({
+        "categories": _all_categories(),
+        "month_label": today.strftime("%B %Y"),
+        "income": round(income, 2),
+        "expenses": round(expenses, 2),
+        "savings": round(savings, 2),
+        "budget_data": [
+            {
+                "category": item["category"],
+                "spent": round(item["spent"], 2),
+                "limit": round(item["limit"], 2),
+                "status": item["status"],
+                "pct": item["pct"],
+            }
+            for item in budget_data
+        ],
+    })
+
+
+@app.route("/api/voice-add", methods=["POST"])
+@login_required
+def voice_add_api():
+    try:
+        data = request.get_json(force=True)
+        txn = Transaction(
+            amount=float(data["amount"]),
+            category=str(data["category"]),
+            date=date.today().isoformat(),
+            note="added by voice",
+        )
+        g.store.add_transaction(txn)
+        today = date.today()
+        _check_and_notify_limits(
+            g.store, g.store.load_transactions(), g.store.load_limits(),
+            today.year, today.month, g.store.load_alert_threshold() / 100,
+        )
+        return jsonify({"ok": True})
+    except (ValueError, KeyError, TypeError) as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
 
 
 if __name__ == "__main__":

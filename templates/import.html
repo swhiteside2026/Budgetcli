@@ -76,6 +76,41 @@
 
 <form method="POST" action="{{ url_for('import_confirm') }}">
 
+{% if date_ambiguous %}
+<!-- Date format selector — shown when auto-detection cannot resolve MM/DD vs DD/MM -->
+<div class="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5">
+  <div class="flex items-start gap-3">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+    <div class="flex-1">
+      <p class="text-sm font-semibold text-amber-800">Ambiguous date format — please confirm</p>
+      <p class="text-xs text-amber-700 mt-1">
+        Some dates in your file could be read two ways — for example
+        <span class="font-mono font-semibold">01/02/2024</span>
+        is either <span class="font-semibold">Jan 2</span> (MM/DD) or
+        <span class="font-semibold">Feb 1</span> (DD/MM).
+        No date in the file had a day &gt; 12, so the format cannot be inferred automatically.
+      </p>
+      <div class="flex flex-wrap gap-6 mt-3">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="date_fmt" value="mdy" class="radio radio-sm radio-warning"
+                 {{ 'checked' if date_fmt == 'mdy' else '' }}>
+          <span class="text-sm font-medium text-amber-900">MM/DD/YYYY &mdash; United States</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="date_fmt" value="dmy" class="radio radio-sm radio-warning"
+                 {{ 'checked' if date_fmt == 'dmy' else '' }}>
+          <span class="text-sm font-medium text-amber-900">DD/MM/YYYY &mdash; International</span>
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<input type="hidden" name="date_fmt" value="{{ date_fmt }}">
+{% endif %}
+
 <!-- Column mapping -->
 <div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
   <div class="px-6 pt-5 pb-2">

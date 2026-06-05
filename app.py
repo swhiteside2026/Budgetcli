@@ -111,8 +111,11 @@ def _check_and_notify_limits(
 
 
 def _all_categories() -> list[str]:
+    suppressed = {s.lower() for s in g.store.load_suppressed_categories()}
+    base = [c for c in VALID_CATEGORIES if c.lower() not in suppressed]
     custom = g.store.load_custom_categories()
-    return VALID_CATEGORIES + [c for c in custom if c not in VALID_CATEGORIES]
+    base_lower = {c.lower() for c in base}
+    return base + [c for c in custom if c.lower() not in base_lower]
 
 
 def _budget_data(
@@ -320,11 +323,24 @@ def dashboard() -> str:
 def transactions() -> str:
     all_txns = g.store.load_transactions()
     indexed = sorted(enumerate(all_txns), key=lambda x: x[1].date, reverse=True)
+    txns_json = json.dumps([
+        {
+            "idx": idx,
+            "amount": t.amount,
+            "category": t.category,
+            "date": t.date.isoformat(),
+            "is_income": t.is_income,
+            "source": t.source,
+            "note": t.note,
+        }
+        for idx, t in indexed
+    ])
     return render_template(
         "transactions.html",
         indexed_transactions=indexed,
         categories=_all_categories(),
         today=date.today().isoformat(),
+        txns_json=txns_json,
     )
 
 
@@ -591,7 +607,7 @@ def apply_recurring_route():
     for rt in rec_list:
         if rt.is_due(today):
             g.store.add_transaction(
-                Transaction(amount=rt.amount, category=rt.category, date=today, note=rt.note)
+                Transaction(amount=rt.amount, category=rt.category, date=today, note=rt.note, source="recurring")
             )
             rt.last_applied = today
             applied += 1
@@ -672,13 +688,16 @@ def export_download():
 @app.route("/categories")
 @login_required
 def categories() -> str:
+    all_cats = _all_categories()
     custom = g.store.load_custom_categories()
+    custom_lower = {c.lower() for c in custom}
+    builtin_cats = [c for c in all_cats if c.lower() not in custom_lower]
     txns = g.store.load_transactions()
     rec = g.store.load_recurring()
     used: set[str] = {t.category for t in txns} | {r.category for r in rec}
     return render_template(
         "categories.html",
-        default_categories=VALID_CATEGORIES,
+        default_categories=builtin_cats,
         custom_categories=custom,
         used_categories=used,
     )
@@ -687,12 +706,12 @@ def categories() -> str:
 @app.route("/categories/add", methods=["POST"])
 @login_required
 def add_category_route():
-    raw = request.form.get("name", "").strip().lower().replace(" ", "-")
-    name = re.sub(r"[^a-z0-9-]", "", raw)
+    raw = request.form.get("name", "").strip().replace(" ", "-")
+    name = re.sub(r"[^a-zA-Z0-9-]", "", raw)
     if len(name) < 2 or len(name) > 30 or name.startswith("-") or name.endswith("-"):
         flash("Category name must be 2–30 characters, letters/numbers/hyphens, no leading or trailing hyphens.", "error")
         return redirect(url_for("categories"))
-    if name in _all_categories():
+    if name.lower() in {c.lower() for c in _all_categories()}:
         flash(f'Category "{name}" already exists.', "error")
         return redirect(url_for("categories"))
     g.store.add_custom_category(name)
@@ -705,13 +724,45 @@ def add_category_route():
 @login_required
 def delete_category_route(name: str):
     custom = g.store.load_custom_categories()
-    if name not in custom:
+    if name.lower() not in {c.lower() for c in custom}:
         flash(f'"{name}" is a built-in category and cannot be deleted.', "error")
         return redirect(url_for("categories"))
     g.store.remove_custom_category(name)
-    if name in VALID_CATEGORIES:
-        VALID_CATEGORIES.remove(name)
+    for i, c in enumerate(VALID_CATEGORIES):
+        if c.lower() == name.lower():
+            VALID_CATEGORIES.pop(i)
+            break
     flash(f'Category "{name}" removed.', "success")
+    return redirect(url_for("categories"))
+
+
+@app.route("/categories/<name>/rename", methods=["POST"])
+@login_required
+def rename_category_route(name: str):
+    new_name = request.form.get("new_name", "").strip()
+    if not new_name:
+        flash("New name cannot be empty.", "error")
+        return redirect(url_for("categories"))
+    if new_name.lower() == name.lower():
+        flash("New name is the same as the current name.", "error")
+        return redirect(url_for("categories"))
+    all_cats = _all_categories()
+    if new_name.lower() in {c.lower() for c in all_cats}:
+        flash(f'Category "{new_name}" already exists.', "error")
+        return redirect(url_for("categories"))
+    # Determine if the old name is a built-in (not in custom list)
+    custom = g.store.load_custom_categories()
+    is_builtin = name.lower() not in {c.lower() for c in custom}
+    count = g.store.rename_category(name, new_name, suppress_old=is_builtin)
+    # Keep the in-memory VALID_CATEGORIES list consistent for this process
+    for i, c in enumerate(VALID_CATEGORIES):
+        if c.lower() == name.lower():
+            VALID_CATEGORIES[i] = new_name
+            break
+    else:
+        VALID_CATEGORIES.append(new_name)
+    txn_msg = f"{count} transaction{'s' if count != 1 else ''} updated"
+    flash(f'Renamed "{name}" → "{new_name}". {txn_msg}.', "success")
     return redirect(url_for("categories"))
 
 
@@ -967,7 +1018,7 @@ def import_confirm():
                 if mapping["amount"] < len(row) else ""
             )
             raw_cat = (
-                row[mapping["category"]].strip().lower()
+                row[mapping["category"]].strip()
                 if "category" in mapping and mapping["category"] < len(row)
                 else ""
             )
@@ -987,7 +1038,8 @@ def import_confirm():
                 skipped += 1
                 continue
 
-            category = raw_cat if raw_cat in all_cats else default_category
+            _raw_lower = raw_cat.lower()
+            category = next((c for c in all_cats if c.lower() == _raw_lower), default_category)
             g.store.add_transaction(
                 Transaction(amount=amount, category=category, date=txn_date, note=raw_note[:200])
             )

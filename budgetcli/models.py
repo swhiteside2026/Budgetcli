@@ -15,18 +15,19 @@ class Transaction:
     category: str
     date: date
     note: str = field(default="")
+    source: str = field(default="manual")
 
     def __post_init__(self) -> None:
         if self.amount <= 0:
             raise ValueError("amount must be greater than zero")
-        if self.category not in VALID_CATEGORIES:
+        if self.category.lower() not in {c.lower() for c in VALID_CATEGORIES}:
             raise ValueError(f"category must be one of {VALID_CATEGORIES}")
         if isinstance(self.date, str):
             self.date = date.fromisoformat(self.date)
 
     @property
     def is_income(self) -> bool:
-        return self.category == "income"
+        return self.category.lower() == "income"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -34,6 +35,7 @@ class Transaction:
             "category": self.category,
             "date": self.date.isoformat(),
             "note": self.note,
+            "source": self.source,
         }
 
     @classmethod
@@ -43,6 +45,7 @@ class Transaction:
             category=data["category"],
             date=data["date"],
             note=data.get("note", ""),
+            source=data.get("source", "manual"),
         )
 
 
@@ -60,7 +63,7 @@ class RecurringTransaction:
     def __post_init__(self) -> None:
         if self.amount <= 0:
             raise ValueError("amount must be greater than zero")
-        if self.category not in VALID_CATEGORIES:
+        if self.category.lower() not in {c.lower() for c in VALID_CATEGORIES}:
             raise ValueError(f"category must be one of {VALID_CATEGORIES}")
         if self.frequency not in VALID_FREQUENCIES:
             raise ValueError(f"frequency must be one of {VALID_FREQUENCIES}")
@@ -98,9 +101,9 @@ class BudgetLimit:
     amount: float
 
     def __post_init__(self) -> None:
-        if self.category not in VALID_CATEGORIES:
+        if self.category.lower() not in {c.lower() for c in VALID_CATEGORIES}:
             raise ValueError(f"category must be one of {VALID_CATEGORIES}")
-        if self.category == "income":
+        if self.category.lower() == "income":
             raise ValueError("budget limits cannot be set on the income category")
         if self.amount <= 0:
             raise ValueError("amount must be greater than zero")

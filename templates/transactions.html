@@ -7,7 +7,9 @@
 <div class="flex items-start justify-between gap-4">
   <div>
     <h1 class="text-2xl font-bold text-pink-900">Transactions</h1>
-    <p class="text-pink-400 text-sm mt-0.5">{{ indexed_transactions|length }} total transactions</p>
+    <p class="text-pink-400 text-sm mt-0.5">
+      <span id="hdr_count">{{ indexed_transactions|length }}</span> of {{ indexed_transactions|length }} transactions
+    </p>
   </div>
   <a href="{{ url_for('import_excel') }}"
      class="btn btn-outline btn-sm rounded-xl border-pink-200 text-pink-700 hover:bg-pink-50 hover:border-pink-400 gap-2 flex-shrink-0">
@@ -61,6 +63,81 @@
   </div>
 </div>
 
+<!-- ── Filter bar ──────────────────────────────────────────────── -->
+<div class="rounded-2xl border border-pink-100 bg-white shadow-sm px-6 py-4">
+  <div class="flex flex-wrap items-center gap-3">
+
+    <!-- Category -->
+    <div class="form-control min-w-36 flex-1">
+      <label class="label py-0.5">
+        <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-400">Category</span>
+      </label>
+      <select id="f_category" onchange="applyFilters()"
+              class="select select-bordered select-sm rounded-xl border-pink-200 focus:border-pink-400">
+        <option value="">All categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}">{{ cat }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Type -->
+    <div class="form-control flex-shrink-0">
+      <label class="label py-0.5">
+        <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-400">Type</span>
+      </label>
+      <div class="join" id="f_type_group">
+        <button type="button" data-type="" onclick="setType(this)"
+                class="join-item btn btn-sm border border-pink-200 btn-active">All</button>
+        <button type="button" data-type="income" onclick="setType(this)"
+                class="join-item btn btn-sm border border-pink-200">Income</button>
+        <button type="button" data-type="expense" onclick="setType(this)"
+                class="join-item btn btn-sm border border-pink-200">Expense</button>
+      </div>
+    </div>
+
+    <!-- Date range -->
+    <div class="form-control flex-shrink-0">
+      <label class="label py-0.5">
+        <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-400">From</span>
+      </label>
+      <input type="date" id="f_from" onchange="applyFilters()"
+             class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400 w-36" />
+    </div>
+    <div class="form-control flex-shrink-0">
+      <label class="label py-0.5">
+        <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-400">To</span>
+      </label>
+      <input type="date" id="f_to" onchange="applyFilters()"
+             class="input input-bordered input-sm rounded-xl border-pink-200 focus:border-pink-400 w-36" />
+    </div>
+
+    <!-- Source -->
+    <div class="form-control flex-shrink-0">
+      <label class="label py-0.5">
+        <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-400">Source</span>
+      </label>
+      <div class="join" id="f_source_group">
+        <button type="button" data-source="" onclick="setSource(this)"
+                class="join-item btn btn-sm border border-pink-200 btn-active">All</button>
+        <button type="button" data-source="manual" onclick="setSource(this)"
+                class="join-item btn btn-sm border border-pink-200">One-time</button>
+        <button type="button" data-source="recurring" onclick="setSource(this)"
+                class="join-item btn btn-sm border border-pink-200">Recurring</button>
+      </div>
+    </div>
+
+    <!-- Active filters badge + clear -->
+    <div class="flex items-center gap-2 ml-auto flex-shrink-0 self-end pb-0.5">
+      <span id="filter_badge" class="badge badge-primary badge-sm hidden">0 active</span>
+      <button type="button" id="clear_filters_btn" onclick="clearFilters()"
+              class="btn btn-ghost btn-sm rounded-xl text-gray-400 hover:text-gray-600 hidden">
+        Clear filters
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Transaction list ────────────────────────────────────────── -->
 <div class="rounded-2xl border border-pink-100 bg-white shadow-sm">
   <div class="px-6 pt-5 pb-1 flex items-center gap-2">
@@ -68,7 +145,7 @@
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
     </svg>
     <h2 class="font-bold text-pink-900">All Transactions</h2>
-    <span class="badge badge-ghost badge-sm">{{ indexed_transactions|length }}</span>
+    <span id="list_badge" class="badge badge-ghost badge-sm">{{ indexed_transactions|length }}</span>
   </div>
 
   {% if indexed_transactions %}
@@ -90,7 +167,12 @@
       </thead>
       <tbody>
         {% for idx, t in indexed_transactions %}
-        <tr class="hover:bg-pink-50/40 border-b border-pink-50/50 group" id="row_{{ idx }}">
+        <tr class="hover:bg-pink-50/40 border-b border-pink-50/50 group" id="row_{{ idx }}"
+            data-idx="{{ idx }}"
+            data-category="{{ t.category }}"
+            data-date="{{ t.date.isoformat() }}"
+            data-income="{{ '1' if t.is_income else '0' }}"
+            data-source="{{ t.source }}">
           <td class="pl-3 py-3">
             <input type="checkbox"
                    class="checkbox checkbox-xs checkbox-primary rounded row-cb"
@@ -238,6 +320,90 @@
 </dialog>
 
 <script>
+// ── Transaction data (used by filters and exposed for other page features) ──
+const ALL_TRANSACTIONS = {{ txns_json | safe }};
+const TOTAL = ALL_TRANSACTIONS.length;
+window.filteredTransactions = [...ALL_TRANSACTIONS];
+
+// ── Filter state ────────────────────────────────────────────────────────────
+let activeType   = '';    // '' | 'income' | 'expense'
+let activeSource = '';    // '' | 'manual' | 'recurring'
+
+function setType(btn) {
+  activeType = btn.dataset.type;
+  document.querySelectorAll('#f_type_group .join-item').forEach(b => b.classList.remove('btn-active'));
+  btn.classList.add('btn-active');
+  applyFilters();
+}
+
+function setSource(btn) {
+  activeSource = btn.dataset.source;
+  document.querySelectorAll('#f_source_group .join-item').forEach(b => b.classList.remove('btn-active'));
+  btn.classList.add('btn-active');
+  applyFilters();
+}
+
+function applyFilters() {
+  const cat  = document.getElementById('f_category').value;
+  const from = document.getElementById('f_from').value;
+  const to   = document.getElementById('f_to').value;
+
+  window.filteredTransactions = ALL_TRANSACTIONS.filter(t => {
+    if (cat  && t.category.toLowerCase() !== cat.toLowerCase()) return false;
+    if (activeType === 'income'  && !t.is_income) return false;
+    if (activeType === 'expense' &&  t.is_income) return false;
+    if (from && t.date < from) return false;
+    if (to   && t.date > to)   return false;
+    if (activeSource && t.source !== activeSource) return false;
+    return true;
+  });
+
+  // Show/hide table rows
+  const visibleIdx = new Set(window.filteredTransactions.map(t => t.idx));
+  document.querySelectorAll('tbody tr[data-idx]').forEach(row => {
+    row.style.display = visibleIdx.has(parseInt(row.dataset.idx)) ? '' : 'none';
+  });
+
+  // Update counts
+  const n = window.filteredTransactions.length;
+  const listBadge = document.getElementById('list_badge');
+  const hdrCount  = document.getElementById('hdr_count');
+  if (listBadge) listBadge.textContent = n;
+  if (hdrCount)  hdrCount.textContent  = n;
+
+  // Active-filter indicator
+  let active = 0;
+  if (cat)          active++;
+  if (activeType)   active++;
+  if (from || to)   active++;
+  if (activeSource) active++;
+
+  const badge = document.getElementById('filter_badge');
+  const clearBtn = document.getElementById('clear_filters_btn');
+  if (badge) {
+    badge.textContent = active + (active === 1 ? ' filter' : ' filters');
+    badge.classList.toggle('hidden', active === 0);
+  }
+  if (clearBtn) clearBtn.classList.toggle('hidden', active === 0);
+
+  // Re-sync the bulk bar (hidden rows shouldn't be counted)
+  updateBulkBar();
+}
+
+function clearFilters() {
+  document.getElementById('f_category').value = '';
+  document.getElementById('f_from').value = '';
+  document.getElementById('f_to').value = '';
+  activeType = '';
+  activeSource = '';
+  document.querySelector('#f_type_group   [data-type=""]')  .classList.add('btn-active');
+  document.querySelector('#f_source_group [data-source=""]').classList.add('btn-active');
+  document.querySelectorAll('#f_type_group   .join-item:not([data-type=""])').forEach(b => b.classList.remove('btn-active'));
+  document.querySelectorAll('#f_source_group .join-item:not([data-source=""])').forEach(b => b.classList.remove('btn-active'));
+  applyFilters();
+}
+
+// ── Filter-aware select-all / bulk helpers ───────────────────────────────────
 function openEdit(btn) {
   const d = btn.dataset;
   const form = document.getElementById('edit_form');
@@ -257,8 +423,8 @@ function openDelete(btn) {
 }
 
 function updateBulkBar() {
-  const allCbs = document.querySelectorAll('.row-cb');
-  const checked = document.querySelectorAll('.row-cb:checked');
+  const allCbs = [...document.querySelectorAll('.row-cb')].filter(el => el.closest('tr').style.display !== 'none');
+  const checked = allCbs.filter(el => el.checked);
   const n = checked.length;
   const bar = document.getElementById('bulk_bar');
   const selectAll = document.getElementById('select_all');
@@ -294,7 +460,10 @@ function updateBulkBar() {
 }
 
 function toggleSelectAll(cb) {
-  document.querySelectorAll('.row-cb').forEach(el => { el.checked = cb.checked; });
+  // Only touch checkboxes in visible (non-filtered) rows
+  document.querySelectorAll('.row-cb').forEach(el => {
+    if (el.closest('tr').style.display !== 'none') el.checked = cb.checked;
+  });
   updateBulkBar();
 }
 

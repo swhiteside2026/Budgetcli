@@ -1,3 +1,4 @@
+import calendar
 import csv
 import io
 import json
@@ -18,14 +19,14 @@ app = Flask(__name__)
 app.secret_key = "budgetcli-dev-secret"
 
 THEMES = [
-    ("corporate", "Corporate", "#1b6fd0"),
-    ("nord",      "Nord",      "#5e81ac"),
-    ("dracula",   "Dracula",   "#bd93f9"),
-    ("emerald",   "Emerald",   "#47c272"),
-    ("synthwave", "Synthwave", "#e779c1"),
-    ("luxury",    "Luxury",    "#cca918"),
-    ("valentine", "Valentine", "#e96d7b"),
-    ("coffee",    "Coffee",    "#db924b"),
+    ("pink",   "Pink",   "oklch(0.50 0.200 5)"),
+    ("blue",   "Blue",   "oklch(0.49 0.210 250)"),
+    ("green",  "Green",  "oklch(0.48 0.155 145)"),
+    ("orange", "Orange", "oklch(0.46 0.165 55)"),
+    ("purple", "Purple", "oklch(0.49 0.220 295)"),
+    ("yellow", "Yellow", "oklch(0.77 0.185 95)"),
+    ("grey",   "Grey",   "oklch(0.38 0 0)"),
+    ("black",  "Black",  "oklch(0.11 0 0)"),
 ]
 _VALID_THEMES = {t[0] for t in THEMES}
 
@@ -150,7 +151,7 @@ def _budget_data(
 
 @app.context_processor
 def inject_globals() -> dict:
-    current_theme = session.get("theme", "corporate")
+    current_theme = session.get("theme", "blue")
     base: dict = {
         "current_theme": current_theme,
         "themes": THEMES,
@@ -285,7 +286,7 @@ def reset_password():
 
 @app.route("/theme/set", methods=["POST"])
 def set_theme():
-    theme = request.form.get("theme", "corporate")
+    theme = request.form.get("theme", "blue")
     if theme in _VALID_THEMES:
         session["theme"] = theme
     return redirect(request.referrer or url_for("dashboard"))
@@ -860,6 +861,109 @@ def _analyse_date_column(values: list[str]) -> tuple[str, bool]:
     return "mdy", False
 
 
+_MONTH_NAMES: frozenset[str] = frozenset({
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december",
+    "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+})
+
+_SKIP_ROW_PATTERNS: frozenset[str] = frozenset({
+    "total", "totals", "total bills", "remaining", "balance", "net", "subtotal",
+    "grand total", "amount due", "due", "total expenses", "total income",
+})
+
+
+def _is_month_header(cell: str) -> bool:
+    s = cell.strip().lower()
+    if not s:
+        return False
+    if s in _MONTH_NAMES:
+        return True
+    parts = s.split()
+    if len(parts) == 2 and parts[0] in _MONTH_NAMES:
+        return True
+    if "-" in s:
+        p = s.split("-", 1)
+        if p[0] in _MONTH_NAMES:
+            return True
+    if "/" in s:
+        p = s.split("/")
+        if len(p) == 2 and p[0].strip().lstrip("0").isdigit() and len(p[1].strip()) == 4:
+            return True
+    if re.match(r"^\d{4}-\d{1,2}$", s):
+        return True
+    return False
+
+
+def _detect_grid(rows: list[list[str]]) -> bool:
+    if not rows or len(rows[0]) < 3:
+        return False
+    non_blank = [h for h in rows[0][1:] if h.strip()]
+    if not non_blank:
+        return False
+    month_count = sum(1 for h in non_blank if _is_month_header(h))
+    return month_count >= 2 and month_count >= len(non_blank) * 0.5
+
+
+def _grid_col_to_date(anchor_year: int, anchor_month: int, col_offset: int, day: int) -> date:
+    total_months = anchor_month - 1 + col_offset
+    year = anchor_year + total_months // 12
+    month = total_months % 12 + 1
+    day = min(day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def _is_steady(amounts: list[float | None], min_count: int = 3, epsilon: float = 0.01) -> bool:
+    recent = [abs(a) for a in amounts[-6:] if a is not None and a != 0.0]
+    if len(recent) < min_count:
+        return False
+    return max(recent) - min(recent) <= epsilon
+
+
+def _default_row_type(name: str) -> str:
+    s = name.strip().lower()
+    if s in _SKIP_ROW_PATTERNS or s.startswith("total") or s.endswith("total"):
+        return "skip"
+    return "expense"
+
+
+def _build_grid_row_meta(string_rows: list[list[str]]) -> tuple[list[dict], list[str]]:
+    if not string_rows:
+        return [], []
+    col_headers = [c.strip() for c in string_rows[0][1:]]
+    row_meta = []
+    for row in string_rows[1:]:
+        if not row or not row[0].strip():
+            continue
+        name = row[0].strip()
+        amounts: list[float | None] = []
+        for cell in row[1:]:
+            s = cell.strip().lstrip("$").replace(",", "")
+            try:
+                amounts.append(float(s) if s else None)
+            except ValueError:
+                amounts.append(None)
+        if all(a is None for a in amounts):
+            continue
+        steady = _is_steady(amounts)
+        suggested: float | None = None
+        if steady:
+            suggested = next(
+                (abs(a) for a in reversed(amounts) if a is not None and a != 0.0),
+                None,
+            )
+        cell_count = sum(1 for a in amounts if a is not None and a != 0.0)
+        row_meta.append({
+            "name": name,
+            "amounts": amounts,
+            "cell_count": cell_count,
+            "default_type": _default_row_type(name),
+            "steady": steady,
+            "suggested_amount": suggested,
+        })
+    return row_meta, col_headers
+
+
 @app.route("/import")
 @login_required
 def import_excel():
@@ -1081,6 +1185,243 @@ def import_confirm():
             "No transactions could be imported. Check that your file has valid date and amount columns.",
             "error",
         )
+
+    return redirect(url_for("transactions"))
+
+
+# ── Grid / Matrix Excel Import ────────────────────────────────────────────────
+
+@app.route("/import/grid/upload", methods=["POST"])
+@login_required
+def import_grid_upload():
+    file = request.files.get("file")
+    if not file or not file.filename:
+        flash("No file selected.", "error")
+        return redirect(url_for("import_excel"))
+
+    fname = file.filename.lower()
+    if not (fname.endswith(".xlsx") or fname.endswith(".xls")):
+        flash("Only .xlsx and .xls files are accepted.", "error")
+        return redirect(url_for("import_excel"))
+
+    ext = "xlsx" if fname.endswith(".xlsx") else "xls"
+    user_dir = auth.user_data_path(session["username"]).parent
+
+    def _to_str(v) -> str:
+        if v is None:
+            return ""
+        if isinstance(v, datetime):
+            return v.date().isoformat()
+        if isinstance(v, date):
+            return v.isoformat()
+        return str(v).strip()
+
+    try:
+        file_bytes = file.read()
+        sheets_data: dict = {}
+
+        if ext == "xlsx":
+            import openpyxl
+
+            wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
+            try:
+                sheet_names = wb.sheetnames
+                for name in sheet_names:
+                    ws = wb[name]
+                    sheets_data[name] = [[_to_str(c) for c in row] for row in ws.iter_rows(values_only=True)]
+            finally:
+                wb.close()
+        else:
+            import xlrd
+
+            def _xlrd_str(cell, datemode) -> str:
+                if cell.ctype == xlrd.XL_CELL_DATE:
+                    return xlrd.xldate_as_datetime(cell.value, datemode).date().isoformat()
+                if cell.ctype in (xlrd.XL_CELL_EMPTY, xlrd.XL_CELL_BLANK):
+                    return ""
+                if cell.ctype == xlrd.XL_CELL_NUMBER:
+                    v = cell.value
+                    return str(int(v)) if v == int(v) else str(v)
+                return str(cell.value).strip()
+
+            wb = xlrd.open_workbook(file_contents=file_bytes)
+            sheet_names = [wb.sheet_name(i) for i in range(wb.nsheets)]
+            for idx, name in enumerate(sheet_names):
+                ws = wb.sheet_by_index(idx)
+                sheets_data[name] = [
+                    [_xlrd_str(ws.cell(r, c), wb.datemode) for c in range(ws.ncols)]
+                    for r in range(ws.nrows)
+                ]
+    except Exception as e:
+        flash(f"Could not read Excel file: {e}", "error")
+        return redirect(url_for("import_excel"))
+
+    first_sheet = sheet_names[0]
+    if not _detect_grid(sheets_data[first_sheet]):
+        flash(
+            "This file does not look like a grid/matrix layout. "
+            "The first row should have month names across the top. "
+            "Use the standard import for tabular transaction files.",
+            "error",
+        )
+        return redirect(url_for("import_excel"))
+
+    temp_path = user_dir / "import_grid_temp.json"
+    temp_path.write_text(
+        json.dumps({"sheet_names": sheet_names, "selected_sheet": first_sheet, "sheets_data": sheets_data}),
+        encoding="utf-8",
+    )
+    return redirect(url_for("import_grid_review"))
+
+
+@app.route("/import/grid/review")
+@login_required
+def import_grid_review():
+    user_dir = auth.user_data_path(session["username"]).parent
+    temp_path = user_dir / "import_grid_temp.json"
+    if not temp_path.exists():
+        flash("No grid import in progress. Please upload a file first.", "error")
+        return redirect(url_for("import_excel"))
+
+    meta = json.loads(temp_path.read_text(encoding="utf-8"))
+    sheet_names = meta["sheet_names"]
+
+    requested_sheet = request.args.get("sheet", "").strip()
+    if requested_sheet and requested_sheet in sheet_names:
+        meta["selected_sheet"] = requested_sheet
+        temp_path.write_text(json.dumps(meta), encoding="utf-8")
+    selected_sheet = meta["selected_sheet"]
+
+    try:
+        string_rows = meta["sheets_data"][selected_sheet]
+    except KeyError as e:
+        flash(f"Could not load sheet data: {e}", "error")
+        return redirect(url_for("import_excel"))
+
+    row_meta, col_headers = _build_grid_row_meta(string_rows)
+    row_meta_js = [{"cell_count": r["cell_count"]} for r in row_meta]
+
+    return render_template(
+        "import_grid.html",
+        sheet_names=sheet_names,
+        selected_sheet=selected_sheet,
+        col_headers=col_headers,
+        row_meta=row_meta,
+        row_meta_js=row_meta_js,
+        today=date.today(),
+        num_cols=len(col_headers),
+    )
+
+
+@app.route("/import/grid/confirm", methods=["POST"])
+@login_required
+def import_grid_confirm():
+    user_dir = auth.user_data_path(session["username"]).parent
+    temp_path = user_dir / "import_grid_temp.json"
+    if not temp_path.exists():
+        flash("No grid import in progress.", "error")
+        return redirect(url_for("import_excel"))
+
+    meta = json.loads(temp_path.read_text(encoding="utf-8"))
+    selected_sheet = request.form.get("sheet", meta["selected_sheet"])
+
+    try:
+        anchor_month = int(request.form.get("anchor_month", "1"))
+        anchor_year = int(request.form.get("anchor_year", str(date.today().year)))
+        day_of_month = int(request.form.get("day_of_month", "1"))
+        if not (1 <= anchor_month <= 12):
+            raise ValueError("Invalid month")
+        if not (1900 <= anchor_year <= 2100):
+            raise ValueError("Invalid year")
+        day_of_month = max(1, min(28, day_of_month))
+    except ValueError:
+        flash("Invalid anchor month/year.", "error")
+        return redirect(url_for("import_grid_review"))
+
+    try:
+        string_rows = meta["sheets_data"][selected_sheet]
+    except KeyError as e:
+        flash(f"Could not load sheet data: {e}", "error")
+        return redirect(url_for("import_excel"))
+
+    today = date.today()
+    row_meta, _ = _build_grid_row_meta(string_rows)
+
+    existing_keys: set[tuple[str, float, str]] = {
+        (t.date.isoformat(), round(t.amount, 2), t.category)
+        for t in g.store.load_transactions()
+    }
+
+    saved = income_count = expense_count = dup_count = 0
+
+    for i, row in enumerate(row_meta):
+        row_type = request.form.get(f"row_type_{i}", row["default_type"])
+        if row_type == "skip":
+            continue
+
+        category = "income" if row_type == "income" else row["name"]
+
+        for col_offset, amount in enumerate(row["amounts"]):
+            if amount is None or amount == 0.0:
+                continue
+            txn_date = _grid_col_to_date(anchor_year, anchor_month, col_offset, day_of_month)
+            if txn_date > today:
+                continue
+            amount = abs(amount)
+            key = (txn_date.isoformat(), round(amount, 2), category)
+            if key in existing_keys:
+                dup_count += 1
+                continue
+            existing_keys.add(key)
+            g.store.add_transaction(Transaction(
+                amount=amount,
+                category=category,
+                date=txn_date,
+                note=row["name"],
+                source="import",
+            ))
+            saved += 1
+            if row_type == "income":
+                income_count += 1
+            else:
+                expense_count += 1
+
+        if request.form.get(f"recurring_{i}") and row["steady"] and row["suggested_amount"]:
+            g.store.add_recurring(RecurringTransaction(
+                amount=abs(row["suggested_amount"]),
+                category=category,
+                frequency="monthly",
+                note=row["name"],
+            ))
+
+    try:
+        temp_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+    if saved:
+        new_alerts = _check_and_notify_limits(
+            g.store, g.store.load_transactions(), g.store.load_limits(),
+            today.year, today.month, g.store.load_alert_threshold() / 100,
+        )
+        if new_alerts:
+            session["pending_budget_alerts"] = new_alerts
+        msg = f"Imported {saved} transaction{'s' if saved != 1 else ''}"
+        parts = []
+        if income_count:
+            parts.append(f"{income_count} income")
+        if expense_count:
+            parts.append(f"{expense_count} expense")
+        if parts:
+            msg += f" ({', '.join(parts)})"
+        msg += "."
+        if dup_count:
+            msg += f" {dup_count} duplicate{'s' if dup_count != 1 else ''} skipped."
+        flash(msg, "success")
+    elif dup_count:
+        flash(f"All {dup_count} transactions already exist — nothing new imported.", "info")
+    else:
+        flash("No transactions found in the selected range.", "error")
 
     return redirect(url_for("transactions"))
 

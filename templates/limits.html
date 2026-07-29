@@ -3,6 +3,44 @@
 
 {% block content %}
 
+{#
+  TOKEN MIGRATION PATTERN — follow this to convert remaining pages:
+
+  Page/card backgrounds:
+    bg-base-100        → keep (DaisyUI compat maps to --bg)
+    bg-base-200/50     → keep (maps to --surface-2 at 50% opacity)
+
+  Text:
+    text-base-content  → keep (maps to --text)
+    text-gray-400      → text-base-content/50
+    text-gray-300      → text-base-content/30
+    text-gray-700      → text-base-content/80
+
+  Accent (buttons, icons, links):
+    text-primary / bg-primary / btn-primary → keep via DaisyUI compat (--p = accent)
+    text-emerald-600 / bg-emerald-100       → style="color: var(--accent)" / var(--surface-2)
+
+  Expense / negative amounts:
+    text-red-500 / bg-red-100               → style="color: var(--status-over)" / var(--status-over-bg)
+
+  Budget status badges — replace DaisyUI badge classes:
+    badge-primary / badge-warning / badge-error
+      → <span class="status-badge status-badge-ok|near|over">
+
+  Budget progress bars — replace DaisyUI progress classes:
+    <progress class="progress progress-primary|warning|error" value="...">
+      → <progress class="progress budget-bar" data-status="{{ item.status }}" value="...">
+    Conditional helper text: branch on item.status == 'OVER'|'NEAR'|'OK'
+    Colors: style="color: var(--status-over-text|--status-near-text|--text-muted)"
+
+  Category badges — replace DaisyUI badge classes:
+    badge-warning / badge-info / etc. → cat-badge cat-badge-N (defined in base.html cat_badge dict)
+    Usage: <span class="cat-badge {{ cat_badge.get(category, 'cat-badge-n') }}">{{ category }}</span>
+
+  Danger row actions:
+    text-red-400 hover:text-red-600 hover:bg-red-50 → btn-danger (defined in theme.css)
+#}
+
 <!-- Page header -->
 <div>
   <h1 class="text-2xl font-bold text-base-content">Budget Limits</h1>

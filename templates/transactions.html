@@ -156,7 +156,7 @@
   <div class="overflow-x-auto px-2 pb-4">
     <table class="table table-sm w-full">
       <thead>
-        <tr class="text-xs uppercase tracking-wide text-gray-400 border-b border-base-200/50">
+        <tr class="text-xs uppercase tracking-wide text-base-content/50 border-b border-base-200/50">
           <th class="w-10 py-3 pl-3">
             <input type="checkbox" id="select_all"
                    class="checkbox checkbox-xs checkbox-primary rounded"
@@ -183,16 +183,16 @@
                    value="{{ idx }}"
                    onchange="updateBulkBar()" />
           </td>
-          <td class="text-sm text-gray-400 whitespace-nowrap py-3">{{ t.date.strftime("%b %d, %Y") }}</td>
+          <td class="text-sm text-base-content/50 whitespace-nowrap py-3">{{ t.date.strftime("%b %d, %Y") }}</td>
           <td>
-            <span class="badge {{ cat_badge.get(t.category, 'badge-ghost') }} badge-sm font-medium">{{ t.category }}</span>
+            <span class="cat-badge {{ cat_badge.get(t.category, 'cat-badge-n') }}">{{ t.category }}</span>
           </td>
-          <td class="font-mono font-semibold {{ 'text-emerald-600' if t.is_income else 'text-red-500' }} whitespace-nowrap">
+          <td class="font-mono font-semibold whitespace-nowrap" style="color: {{ 'var(--accent)' if t.is_income else 'var(--status-over)' }};">
             {{ "+" if t.is_income else "−" }}${{ "%.2f"|format(t.amount) }}
           </td>
-          <td class="text-sm text-gray-400 max-w-xs truncate">
+          <td class="text-sm text-base-content/50 max-w-xs truncate">
             {% if t.source == "recurring" %}
-            <span class="inline-flex items-center mr-1.5 text-gray-300 flex-shrink-0" title="Recurring">
+            <span class="inline-flex items-center mr-1.5 text-base-content/30 flex-shrink-0" title="Recurring">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
@@ -217,7 +217,7 @@
               onclick="openMakeRecurring(this)">Repeat</button>
             {% endif %}
             <button
-              class="btn btn-ghost btn-xs rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 ml-1"
+              class="btn btn-ghost btn-xs rounded-lg btn-danger ml-1"
               data-idx="{{ idx }}"
               data-label="{{ t.date.strftime('%b %d') }} · {{ t.category }} · ${{ '%.2f'|format(t.amount) }}"
               onclick="openDelete(this)">Delete</button>
@@ -228,11 +228,11 @@
     </table>
   </div>
   {% else %}
-  <div class="text-center py-14 text-gray-300">
+  <div class="text-center py-14 text-base-content/30">
     <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
     </svg>
-    <p class="font-medium text-gray-400">No transactions yet</p>
+    <p class="font-medium text-base-content/50">No transactions yet</p>
     <p class="text-sm mt-1">Use the form above to add your first one.</p>
   </div>
   {% endif %}
@@ -523,15 +523,15 @@ let chartType       = 'donut';
 let chartShowIncome = false;
 let catChart        = null;
 
-const CHART_THEME_VARS = ['--p','--s','--a','--su','--wa','--er','--in','--n'];
+// Category palette — reads --cat-1…--cat-6 from theme.css :root
+const CHART_CAT_VARS = ['--cat-1','--cat-2','--cat-3','--cat-4','--cat-5','--cat-6'];
 
-function getCssOklch(varName) {
-  const val = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-  return val ? `oklch(${val})` : null;
+function getCssColor(varName) {
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || null;
 }
 
 function buildChartColors(n) {
-  const base = CHART_THEME_VARS.map(getCssOklch).filter(Boolean);
+  const base = CHART_CAT_VARS.map(getCssColor).filter(Boolean);
   const out = [];
   for (let i = 0; i < n; i++) out.push(base[i % base.length]);
   return out;
@@ -589,8 +589,8 @@ function renderChart() {
   const isDonut = chartType === 'donut';
 
   // Apply theme text color to Chart.js defaults before (re)building
-  const bc = getCssOklch('--bc');
-  if (bc) Chart.defaults.color = bc;
+  const textColor = getCssColor('--text');
+  if (textColor) Chart.defaults.color = textColor;
 
   // Resize container for bar charts so all labels fit
   if (container) {

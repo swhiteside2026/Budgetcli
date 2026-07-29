@@ -8,6 +8,11 @@ from budgetcli.models import RecurringTransaction, Transaction
 
 DATA_FILE: Path = Path(__file__).parent.parent / "data" / "ledger.json"
 
+_BUILTIN_CATS: frozenset[str] = frozenset({
+    "income", "food", "transport", "rent", "utilities",
+    "entertainment", "health", "investment", "hysa", "other",
+})
+
 
 # ── private helpers (path=None → use DATA_FILE at call time, so monkeypatch works) ──
 
@@ -79,9 +84,16 @@ def remove_limit(category: str) -> None:
 
 
 def add_transaction(transaction: Transaction) -> None:
-    raw_transactions, limits, recurring = _read_ledger()
-    raw_transactions.append(transaction.to_dict())
-    _write_ledger(raw_transactions, limits, recurring)
+    p = DATA_FILE
+    raw = _read_raw(p)
+    cats: list[str] = raw.get("custom_categories", [])
+    if transaction.category.lower() not in _BUILTIN_CATS | {c.lower() for c in cats}:
+        cats.append(transaction.category)
+        raw["custom_categories"] = cats
+    txns: list[dict] = raw.get("transactions", [])
+    txns.append(transaction.to_dict())
+    raw["transactions"] = txns
+    p.write_text(json.dumps(raw, indent=2), encoding="utf-8")
 
 
 def clear_all() -> None:
@@ -191,9 +203,15 @@ class Storage:
         _write_ledger(raw_txns, limits, recurring, self._path)
 
     def add_transaction(self, transaction: Transaction) -> None:
-        raw_txns, limits, recurring = _read_ledger(self._path)
-        raw_txns.append(transaction.to_dict())
-        _write_ledger(raw_txns, limits, recurring, self._path)
+        raw = _read_raw(self._path)
+        cats: list[str] = raw.get("custom_categories", [])
+        if transaction.category.lower() not in _BUILTIN_CATS | {c.lower() for c in cats}:
+            cats.append(transaction.category)
+            raw["custom_categories"] = cats
+        txns: list[dict] = raw.get("transactions", [])
+        txns.append(transaction.to_dict())
+        raw["transactions"] = txns
+        self._path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
 
     def delete_transaction(self, index: int) -> None:
         raw_txns, limits, recurring = _read_ledger(self._path)

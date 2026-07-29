@@ -199,6 +199,9 @@ def cmd_edit(args: argparse.Namespace) -> None:
     try:
         amount = float(raw_amount) if raw_amount else t.amount
         category = raw_category if raw_category else t.category
+        if raw_category and category.lower() not in {c.lower() for c in VALID_CATEGORIES}:
+            print(f"Error: category must be one of {VALID_CATEGORIES}")
+            return
         note = raw_note if raw_note else t.note
         updated = Transaction(amount=amount, category=category, date=t.date, note=note)
     except ValueError as e:
@@ -292,6 +295,9 @@ def cmd_help(args: argparse.Namespace) -> None:
 
 
 def cmd_recurring_add(args: argparse.Namespace) -> None:
+    if args.category.lower() not in {c.lower() for c in VALID_CATEGORIES}:
+        console.print(f"Error: category must be one of {VALID_CATEGORIES}")
+        sys.exit(1)
     try:
         rt = RecurringTransaction(
             amount=args.amount,

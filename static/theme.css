@@ -1,0 +1,337 @@
+/*
+ * BudgetBalancer — Tonal Token System
+ *
+ * Three layers:
+ *   Layer 1 — :root: reserved status + category palettes (never theme-dependent)
+ *   Layer 2 — [data-theme="X"]: 9-step tonal scale + 8 role tokens per theme
+ *   Layer 3 — component classes: .budget-bar, .status-badge, .cat-badge, .btn-danger
+ *
+ * To add a theme: add one [data-theme="name"] block following the pattern below.
+ * Set the 9 scale steps (--c-50…--c-900), choose an --accent step and
+ * --accent-text (white on dark accents, dark charcoal on light like yellow),
+ * then fill in the DaisyUI compat section so un-migrated components inherit
+ * the right colors. Nothing else in the app needs to change.
+ */
+
+/* ── Layer 1: Reserved palettes ─────────────────────────────────────────
+   These are fixed across every theme. Status tokens render alongside an
+   icon so they stay legible even on warm (orange/yellow) themes.        */
+:root {
+  /* Status: Near budget limit — saturated amber */
+  --status-near:      oklch(0.60 0.165 60);
+  --status-near-bg:   oklch(0.96 0.040 80);
+  --status-near-text: oklch(0.38 0.130 55);
+
+  /* Status: Over budget limit — deep saturated red */
+  --status-over:      oklch(0.52 0.220 25);
+  --status-over-bg:   oklch(0.96 0.035 20);
+  --status-over-text: oklch(0.36 0.185 22);
+
+  /* Category palette — muted, mutually distinguishable (~40-80° apart) */
+  /* Used ONLY for category dots, badges, and the spending chart.        */
+  --cat-1:    oklch(0.62 0.110 185); /* teal       */
+  --cat-1-bg: oklch(0.94 0.032 185);
+  --cat-2:    oklch(0.60 0.130 295); /* violet     */
+  --cat-2-bg: oklch(0.94 0.035 295);
+  --cat-3:    oklch(0.62 0.120 225); /* sky blue   */
+  --cat-3-bg: oklch(0.94 0.033 225);
+  --cat-4:    oklch(0.60 0.120 145); /* sage green */
+  --cat-4-bg: oklch(0.94 0.035 145);
+  --cat-5:    oklch(0.63 0.125 15);  /* rose       */
+  --cat-5-bg: oklch(0.95 0.033 15);
+  --cat-6:    oklch(0.65 0.130 75);  /* amber      */
+  --cat-6-bg: oklch(0.96 0.030 75);
+  --cat-n:    oklch(0.55 0 0);       /* neutral (custom/unknown categories) */
+  --cat-n-bg: oklch(0.92 0 0);
+}
+
+/* ── Layer 2: Per-theme scales ──────────────────────────────────────────
+   Role tokens (same semantic meaning across every theme):
+     --bg          page background        ← c-50
+     --surface     card background        ← white
+     --surface-2   metric card tint       ← c-100
+     --border                             ← c-200
+     --text                               ← c-900
+     --text-muted                         ← c-600
+     --accent      buttons / nav / bars   ← varies (see each block)
+     --accent-text text ON the accent     ← white or dark charcoal per theme
+
+   DaisyUI compat: maps DaisyUI's raw OKLCH component vars to our role
+   tokens so un-migrated components (inputs, modals, alerts, etc.) stay
+   theme-aware during the transition.                                     */
+
+[data-theme="blue"] {
+  --c-50:  oklch(0.97 0.012 250);
+  --c-100: oklch(0.94 0.030 250);
+  --c-200: oklch(0.88 0.065 250);
+  --c-300: oklch(0.79 0.110 250);
+  --c-400: oklch(0.69 0.150 250);
+  --c-500: oklch(0.59 0.190 250);
+  --c-600: oklch(0.49 0.210 250);
+  --c-700: oklch(0.41 0.200 250);
+  --c-800: oklch(0.33 0.175 250);
+  --c-900: oklch(0.26 0.140 250);
+
+  --bg: var(--c-50); --surface: oklch(1 0 0); --surface-2: var(--c-100);
+  --border: var(--c-200); --text: var(--c-900); --text-muted: var(--c-600);
+  --accent: var(--c-600); --accent-text: oklch(1 0 0);
+
+  --b1: 0.97 0.012 250; --b2: 0.94 0.030 250; --b3: 0.88 0.065 250;
+  --bc: 0.26 0.140 250;
+  --p: 0.49 0.210 250; --pc: 1 0 0; --pf: 0.41 0.200 250;
+  --s: 0.49 0.210 250; --sc: 1 0 0;
+  --a: 0.49 0.210 250; --ac: 1 0 0;
+  --su: 0.49 0.210 250; --suc: 1 0 0;
+  --wa: 0.60 0.165 60; --wac: 0.38 0.130 55;
+  --er: 0.52 0.220 25; --erc: 1 0 0;
+  --in: 0.49 0.210 250; --inc: 1 0 0;
+  --n: 0.94 0.030 250; --nc: 0.26 0.140 250;
+}
+
+[data-theme="pink"] {
+  --c-50:  oklch(0.97 0.012 5);
+  --c-100: oklch(0.94 0.030 5);
+  --c-200: oklch(0.88 0.065 5);
+  --c-300: oklch(0.79 0.110 5);
+  --c-400: oklch(0.69 0.150 5);
+  --c-500: oklch(0.59 0.185 5);
+  --c-600: oklch(0.50 0.200 5);
+  --c-700: oklch(0.42 0.185 5);
+  --c-800: oklch(0.34 0.160 5);
+  --c-900: oklch(0.27 0.125 5);
+
+  --bg: var(--c-50); --surface: oklch(1 0 0); --surface-2: var(--c-100);
+  --border: var(--c-200); --text: var(--c-900); --text-muted: var(--c-600);
+  --accent: var(--c-600); --accent-text: oklch(1 0 0);
+
+  --b1: 0.97 0.012 5; --b2: 0.94 0.030 5; --b3: 0.88 0.065 5;
+  --bc: 0.27 0.125 5;
+  --p: 0.50 0.200 5; --pc: 1 0 0; --pf: 0.42 0.185 5;
+  --s: 0.50 0.200 5; --sc: 1 0 0;
+  --a: 0.50 0.200 5; --ac: 1 0 0;
+  --su: 0.50 0.200 5; --suc: 1 0 0;
+  --wa: 0.60 0.165 60; --wac: 0.38 0.130 55;
+  --er: 0.52 0.220 25; --erc: 1 0 0;
+  --in: 0.50 0.200 5; --inc: 1 0 0;
+  --n: 0.94 0.030 5; --nc: 0.27 0.125 5;
+}
+
+[data-theme="green"] {
+  --c-50:  oklch(0.97 0.015 145);
+  --c-100: oklch(0.94 0.035 145);
+  --c-200: oklch(0.88 0.075 145);
+  --c-300: oklch(0.79 0.115 145);
+  --c-400: oklch(0.68 0.150 145);
+  --c-500: oklch(0.58 0.165 145);
+  --c-600: oklch(0.48 0.155 145);
+  --c-700: oklch(0.40 0.140 145);
+  --c-800: oklch(0.32 0.115 145);
+  --c-900: oklch(0.24 0.090 145);
+
+  --bg: var(--c-50); --surface: oklch(1 0 0); --surface-2: var(--c-100);
+  --border: var(--c-200); --text: var(--c-900); --text-muted: var(--c-600);
+  --accent: var(--c-600); --accent-text: oklch(1 0 0);
+
+  --b1: 0.97 0.015 145; --b2: 0.94 0.035 145; --b3: 0.88 0.075 145;
+  --bc: 0.24 0.090 145;
+  --p: 0.48 0.155 145; --pc: 1 0 0; --pf: 0.40 0.140 145;
+  --s: 0.48 0.155 145; --sc: 1 0 0;
+  --a: 0.48 0.155 145; --ac: 1 0 0;
+  --su: 0.48 0.155 145; --suc: 1 0 0;
+  --wa: 0.60 0.165 60; --wac: 0.38 0.130 55;
+  --er: 0.52 0.220 25; --erc: 1 0 0;
+  --in: 0.48 0.155 145; --inc: 1 0 0;
+  --n: 0.94 0.035 145; --nc: 0.24 0.090 145;
+}
+
+[data-theme="orange"] {
+  --c-50:  oklch(0.97 0.015 55);
+  --c-100: oklch(0.95 0.040 55);
+  --c-200: oklch(0.91 0.085 55);
+  --c-300: oklch(0.84 0.130 55);
+  --c-400: oklch(0.75 0.170 55);
+  --c-500: oklch(0.65 0.190 55);
+  --c-600: oklch(0.55 0.185 55);
+  --c-700: oklch(0.46 0.165 55);
+  --c-800: oklch(0.37 0.135 55);
+  --c-900: oklch(0.29 0.105 55);
+
+  --bg: var(--c-50); --surface: oklch(1 0 0); --surface-2: var(--c-100);
+  --border: var(--c-200); --text: var(--c-900); --text-muted: var(--c-600);
+  --accent: var(--c-700); --accent-text: oklch(1 0 0); /* c-700: deeper step avoids vivid orange */
+
+  --b1: 0.97 0.015 55; --b2: 0.95 0.040 55; --b3: 0.91 0.085 55;
+  --bc: 0.29 0.105 55;
+  --p: 0.46 0.165 55; --pc: 1 0 0; --pf: 0.37 0.135 55;
+  --s: 0.46 0.165 55; --sc: 1 0 0;
+  --a: 0.46 0.165 55; --ac: 1 0 0;
+  --su: 0.46 0.165 55; --suc: 1 0 0;
+  --wa: 0.60 0.165 60; --wac: 0.38 0.130 55;
+  --er: 0.52 0.220 25; --erc: 1 0 0;
+  --in: 0.46 0.165 55; --inc: 1 0 0;
+  --n: 0.95 0.040 55; --nc: 0.29 0.105 55;
+}
+
+[data-theme="purple"] {
+  --c-50:  oklch(0.97 0.012 295);
+  --c-100: oklch(0.94 0.030 295);
+  --c-200: oklch(0.88 0.065 295);
+  --c-300: oklch(0.79 0.110 295);
+  --c-400: oklch(0.69 0.155 295);
+  --c-500: oklch(0.59 0.195 295);
+  --c-600: oklch(0.49 0.220 295);
+  --c-700: oklch(0.41 0.210 295);
+  --c-800: oklch(0.33 0.180 295);
+  --c-900: oklch(0.26 0.145 295);
+
+  --bg: var(--c-50); --surface: oklch(1 0 0); --surface-2: var(--c-100);
+  --border: var(--c-200); --text: var(--c-900); --text-muted: var(--c-600);
+  --accent: var(--c-600); --accent-text: oklch(1 0 0);
+
+  --b1: 0.97 0.012 295; --b2: 0.94 0.030 295; --b3: 0.88 0.065 295;
+  --bc: 0.26 0.145 295;
+  --p: 0.49 0.220 295; --pc: 1 0 0; --pf: 0.41 0.210 295;
+  --s: 0.49 0.220 295; --sc: 1 0 0;
+  --a: 0.49 0.220 295; --ac: 1 0 0;
+  --su: 0.49 0.220 295; --suc: 1 0 0;
+  --wa: 0.60 0.165 60; --wac: 0.38 0.130 55;
+  --er: 0.52 0.220 25; --erc: 1 0 0;
+  --in: 0.49 0.220 295; --inc: 1 0 0;
+  --n: 0.94 0.030 295; --nc: 0.26 0.145 295;
+}
+
+[data-theme="yellow"] {
+  --c-50:  oklch(0.98 0.010 95);
+  --c-100: oklch(0.96 0.030 95);
+  --c-200: oklch(0.93 0.070 95);
+  --c-300: oklch(0.89 0.120 95);
+  --c-400: oklch(0.83 0.165 95);
+  --c-500: oklch(0.77 0.185 95);
+  --c-600: oklch(0.68 0.175 95);
+  --c-700: oklch(0.58 0.155 95);
+  --c-800: oklch(0.46 0.125 95);
+  --c-900: oklch(0.35 0.095 95);
+
+  --bg: var(--c-50); --surface: oklch(1 0 0); --surface-2: var(--c-100);
+  --border: var(--c-200); --text: var(--c-900); --text-muted: var(--c-600);
+  --accent: var(--c-500); --accent-text: oklch(0.20 0 0); /* dark charcoal on vivid yellow */
+
+  --b1: 0.98 0.010 95; --b2: 0.96 0.030 95; --b3: 0.93 0.070 95;
+  --bc: 0.35 0.095 95;
+  --p: 0.77 0.185 95; --pc: 0.20 0 0; --pf: 0.68 0.175 95;
+  --s: 0.77 0.185 95; --sc: 0.20 0 0;
+  --a: 0.77 0.185 95; --ac: 0.20 0 0;
+  --su: 0.77 0.185 95; --suc: 0.20 0 0;
+  --wa: 0.60 0.165 60; --wac: 0.38 0.130 55;
+  --er: 0.52 0.220 25; --erc: 1 0 0;
+  --in: 0.77 0.185 95; --inc: 0.20 0 0;
+  --n: 0.96 0.030 95; --nc: 0.35 0.095 95;
+}
+
+[data-theme="grey"] {
+  --c-50:  oklch(0.97 0 0);
+  --c-100: oklch(0.93 0 0);
+  --c-200: oklch(0.87 0 0);
+  --c-300: oklch(0.78 0 0);
+  --c-400: oklch(0.67 0 0);
+  --c-500: oklch(0.57 0 0);
+  --c-600: oklch(0.47 0 0);
+  --c-700: oklch(0.38 0 0);
+  --c-800: oklch(0.30 0 0);
+  --c-900: oklch(0.22 0 0);
+
+  --bg: var(--c-50); --surface: oklch(1 0 0); --surface-2: var(--c-100);
+  --border: var(--c-200); --text: var(--c-900); --text-muted: var(--c-600);
+  --accent: var(--c-700); --accent-text: oklch(1 0 0); /* mid-charcoal on white */
+
+  --b1: 0.97 0 0; --b2: 0.93 0 0; --b3: 0.87 0 0;
+  --bc: 0.22 0 0;
+  --p: 0.38 0 0; --pc: 1 0 0; --pf: 0.30 0 0;
+  --s: 0.38 0 0; --sc: 1 0 0;
+  --a: 0.38 0 0; --ac: 1 0 0;
+  --su: 0.38 0 0; --suc: 1 0 0;
+  --wa: 0.60 0.165 60; --wac: 0.38 0.130 55;
+  --er: 0.52 0.220 25; --erc: 1 0 0;
+  --in: 0.38 0 0; --inc: 1 0 0;
+  --n: 0.93 0 0; --nc: 0.22 0 0;
+}
+
+[data-theme="black"] {
+  --c-50:  oklch(0.97 0 0);
+  --c-100: oklch(0.92 0 0);
+  --c-200: oklch(0.84 0 0);
+  --c-300: oklch(0.73 0 0);
+  --c-400: oklch(0.60 0 0);
+  --c-500: oklch(0.48 0 0);
+  --c-600: oklch(0.37 0 0);
+  --c-700: oklch(0.28 0 0);
+  --c-800: oklch(0.19 0 0);
+  --c-900: oklch(0.11 0 0);
+
+  --bg: var(--c-50); --surface: oklch(1 0 0); --surface-2: var(--c-100);
+  --border: var(--c-200); --text: var(--c-900); --text-muted: var(--c-600);
+  --accent: var(--c-900); --accent-text: oklch(1 0 0); /* near-black: editorial high contrast */
+
+  --b1: 0.97 0 0; --b2: 0.92 0 0; --b3: 0.84 0 0;
+  --bc: 0.11 0 0;
+  --p: 0.11 0 0; --pc: 1 0 0; --pf: 0.19 0 0;
+  --s: 0.11 0 0; --sc: 1 0 0;
+  --a: 0.11 0 0; --ac: 1 0 0;
+  --su: 0.11 0 0; --suc: 1 0 0;
+  --wa: 0.60 0.165 60; --wac: 0.38 0.130 55;
+  --er: 0.52 0.220 25; --erc: 1 0 0;
+  --in: 0.11 0 0; --inc: 1 0 0;
+  --n: 0.92 0 0; --nc: 0.11 0 0;
+}
+
+/* ── Base styles ─────────────────────────────────────────────────────── */
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/* ── Budget progress bars ────────────────────────────────────────────── */
+/* Usage: <progress class="progress budget-bar" data-status="OK|NEAR|OVER"> */
+.budget-bar                     { accent-color: var(--accent); }
+.budget-bar[data-status="NEAR"] { accent-color: var(--status-near); }
+.budget-bar[data-status="OVER"] { accent-color: var(--status-over); }
+
+/* ── Status badge pills ──────────────────────────────────────────────── */
+/* Usage: <span class="status-badge status-badge-ok|near|over"> */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1em 0.6em;
+  border-radius: 9999px;
+  font-size: 0.72em;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.status-badge-ok   { background: var(--surface-2);     color: var(--text-muted); }
+.status-badge-near { background: var(--status-near-bg); color: var(--status-near-text); }
+.status-badge-over { background: var(--status-over-bg); color: var(--status-over-text); }
+
+/* ── Category badge pills ────────────────────────────────────────────── */
+/* Usage: <span class="cat-badge cat-badge-1|2|3|4|5|6|n"> */
+.cat-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1em 0.55em;
+  border-radius: 9999px;
+  font-size: 0.72em;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.cat-badge-1 { background: var(--cat-1-bg); color: var(--cat-1); }
+.cat-badge-2 { background: var(--cat-2-bg); color: var(--cat-2); }
+.cat-badge-3 { background: var(--cat-3-bg); color: var(--cat-3); }
+.cat-badge-4 { background: var(--cat-4-bg); color: var(--cat-4); }
+.cat-badge-5 { background: var(--cat-5-bg); color: var(--cat-5); }
+.cat-badge-6 { background: var(--cat-6-bg); color: var(--cat-6); }
+.cat-badge-n { background: var(--cat-n-bg); color: var(--cat-n); }
+
+/* ── Danger action button ────────────────────────────────────────────── */
+/* Usage: add btn-danger alongside btn btn-ghost for destructive row actions */
+.btn.btn-ghost.btn-danger            { color: var(--status-over); }
+.btn.btn-ghost.btn-danger:hover      { background-color: var(--status-over-bg); color: var(--status-over-text); }

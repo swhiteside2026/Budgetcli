@@ -18,59 +18,61 @@
   <!-- Income -->
   <div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm p-5">
     <div class="flex items-center gap-2 mb-3">
-      <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--surface-2);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" style="color: var(--accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 11l3-3m0 0l3 3m-3-3v8m0-13a9 9 0 110 18 9 9 0 010-18z" />
         </svg>
       </div>
-      <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Income</span>
+      <span class="text-xs font-semibold uppercase tracking-wider text-base-content/50">Income</span>
     </div>
-    <p class="text-2xl font-bold text-emerald-600">${{ "%.2f"|format(income) }}</p>
-    <p class="text-xs text-gray-400 mt-1">{{ month_label }}</p>
+    <p class="text-2xl font-bold" style="color: var(--accent);">${{ "%.2f"|format(income) }}</p>
+    <p class="text-xs text-base-content/50 mt-1">{{ month_label }}</p>
   </div>
 
   <!-- Expenses -->
   <div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm p-5">
     <div class="flex items-center gap-2 mb-3">
-      <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--status-over-bg);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" style="color: var(--status-over);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13l-3 3m0 0l-3-3m3 3V8m0 13a9 9 0 110-18 9 9 0 010 18z" />
         </svg>
       </div>
-      <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Expenses</span>
+      <span class="text-xs font-semibold uppercase tracking-wider text-base-content/50">Expenses</span>
     </div>
-    <p class="text-2xl font-bold text-red-500">${{ "%.2f"|format(expenses) }}</p>
-    <p class="text-xs text-gray-400 mt-1">{{ month_label }}</p>
+    <p class="text-2xl font-bold" style="color: var(--status-over);">${{ "%.2f"|format(expenses) }}</p>
+    <p class="text-xs text-base-content/50 mt-1">{{ month_label }}</p>
   </div>
 
   <!-- Saved / Overspent -->
   <div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm p-5">
     <div class="flex items-center gap-2 mb-3">
-      <div class="w-8 h-8 rounded-lg {{ 'bg-success/15' if savings >= 0 else 'bg-warning/15' }} flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 {{ 'text-success' if savings >= 0 else 'text-warning' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center"
+           style="background: {{ 'var(--surface-2)' if savings >= 0 else 'var(--status-near-bg)' }};">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+             style="color: {{ 'var(--accent)' if savings >= 0 else 'var(--status-near)' }};">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 10v1m-3-5h6" />
         </svg>
       </div>
-      <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">{{ "Saved" if savings >= 0 else "Overspent" }}</span>
+      <span class="text-xs font-semibold uppercase tracking-wider text-base-content/50">{{ "Saved" if savings >= 0 else "Overspent" }}</span>
     </div>
-    <p class="text-2xl font-bold {{ 'text-success' if savings >= 0 else 'text-warning' }}">${{ "%.2f"|format(savings_abs) }}</p>
-    <p class="text-xs text-gray-400 mt-1">{{ month_label }}</p>
+    <p class="text-2xl font-bold" style="color: {{ 'var(--accent)' if savings >= 0 else 'var(--status-near)' }};">${{ "%.2f"|format(savings_abs) }}</p>
+    <p class="text-xs text-base-content/50 mt-1">{{ month_label }}</p>
   </div>
 
   <!-- All-time balance -->
   <div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm p-5">
     <div class="flex items-center gap-2 mb-3">
-      <div class="w-8 h-8 rounded-lg bg-secondary/15 flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--surface-2);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" style="color: var(--accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       </div>
-      <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">All-time</span>
+      <span class="text-xs font-semibold uppercase tracking-wider text-base-content/50">All-time</span>
     </div>
-    <p class="text-2xl font-bold {{ 'text-emerald-600' if balance >= 0 else 'text-red-500' }}">
+    <p class="text-2xl font-bold" style="color: {{ 'var(--accent)' if balance >= 0 else 'var(--status-over)' }};">
       {{ "+" if balance >= 0 else "−" }}${{ "%.2f"|format(balance_abs) }}
     </p>
-    <p class="text-xs text-gray-400 mt-1">{{ "Net positive" if balance >= 0 else "Net deficit" }}</p>
+    <p class="text-xs text-base-content/50 mt-1">{{ "Net positive" if balance >= 0 else "Net deficit" }}</p>
   </div>
 
 </div>
@@ -93,20 +95,27 @@
     <div>
       <div class="flex justify-between items-center mb-1.5">
         <div class="flex items-center gap-2">
-          <span class="font-semibold capitalize text-sm text-gray-700">{{ item.category }}</span>
-          <span class="badge {{ item.status_class }} badge-sm text-xs">{{ item.status }}</span>
+          <span class="font-semibold capitalize text-sm text-base-content/80">{{ item.category }}</span>
+          <span class="status-badge status-badge-{{ item.status|lower }}">{{ item.status }}</span>
         </div>
-        <span class="text-sm {{ item.label_class or 'text-gray-400' }}">
-          ${{ "%.2f"|format(item.spent) }}<span class="text-gray-300 mx-0.5">/</span>${{ "%.2f"|format(item.limit) }}
+        <span class="text-sm {% if item.status == 'OVER' %}font-bold{% endif %}"
+              style="color: {{ 'var(--status-over-text)' if item.status == 'OVER' else 'var(--text-muted)' }};">
+          ${{ "%.2f"|format(item.spent) }}<span class="mx-0.5" style="color: var(--border);">/</span>${{ "%.2f"|format(item.limit) }}
         </span>
       </div>
-      <progress class="progress {{ item.bar_class }} w-full h-2.5 rounded-full" value="{{ item.pct }}" max="100"></progress>
-      {% if item.bar_class == 'progress-error' %}
-      <p class="text-xs text-red-400 mt-1">Over by ${{ "%.2f"|format(item.spent - item.limit) }}</p>
-      {% elif item.bar_class == 'progress-warning' %}
-      <p class="text-xs text-warning mt-1">{{ "%.0f"|format(item.pct) }}% used — approaching limit</p>
+      <progress class="progress budget-bar w-full h-2.5 rounded-full" data-status="{{ item.status }}" value="{{ item.pct }}" max="100"></progress>
+      {% if item.status == 'OVER' %}
+      <p class="text-xs mt-1" style="color: var(--status-over-text);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 inline -mt-0.5 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+        Over by ${{ "%.2f"|format(item.spent - item.limit) }}
+      </p>
+      {% elif item.status == 'NEAR' %}
+      <p class="text-xs mt-1" style="color: var(--status-near-text);">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 inline -mt-0.5 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        {{ "%.0f"|format(item.pct) }}% used — approaching limit
+      </p>
       {% else %}
-      <p class="text-xs text-gray-300 mt-1">${{ "%.2f"|format([item.limit - item.spent, 0]|max) }} remaining</p>
+      <p class="text-xs mt-1 text-base-content/30">${{ "%.2f"|format([item.limit - item.spent, 0]|max) }} remaining</p>
       {% endif %}
     </div>
     {% endfor %}
@@ -131,7 +140,7 @@
   <div class="overflow-x-auto px-2 pb-4">
     <table class="table table-zebra table-sm w-full">
       <thead>
-        <tr class="text-xs uppercase tracking-wide text-gray-400 border-b border-base-200/50">
+        <tr class="text-xs uppercase tracking-wide text-base-content/50 border-b border-base-200/50">
           <th class="font-semibold py-3">Date</th>
           <th class="font-semibold">Category</th>
           <th class="font-semibold">Amount</th>
@@ -141,25 +150,25 @@
       <tbody>
         {% for t in transactions %}
         <tr class="hover:bg-base-200/50 border-b border-base-200/50">
-          <td class="text-sm text-gray-400 whitespace-nowrap py-3">{{ t.date.strftime("%b %d, %Y") }}</td>
+          <td class="text-sm text-base-content/50 whitespace-nowrap py-3">{{ t.date.strftime("%b %d, %Y") }}</td>
           <td>
-            <span class="badge {{ cat_badge.get(t.category, 'badge-ghost') }} badge-sm font-medium">{{ t.category }}</span>
+            <span class="cat-badge {{ cat_badge.get(t.category, 'cat-badge-n') }}">{{ t.category }}</span>
           </td>
-          <td class="font-mono font-semibold {{ 'text-emerald-600' if t.is_income else 'text-red-500' }} whitespace-nowrap">
+          <td class="font-mono font-semibold whitespace-nowrap" style="color: {{ 'var(--accent)' if t.is_income else 'var(--status-over)' }};">
             {{ "+" if t.is_income else "−" }}${{ "%.2f"|format(t.amount) }}
           </td>
-          <td class="text-sm text-gray-400 max-w-xs truncate">{{ t.note or "—" }}</td>
+          <td class="text-sm text-base-content/50 max-w-xs truncate">{{ t.note or "—" }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
   {% else %}
-  <div class="text-center py-14 text-gray-300">
+  <div class="text-center py-14 text-base-content/30">
     <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
     </svg>
-    <p class="font-medium text-gray-400">No transactions yet</p>
+    <p class="font-medium text-base-content/50">No transactions yet</p>
     <a href="{{ url_for('transactions') }}" class="text-sm text-primary/70 hover:text-primary mt-1 inline-block transition-colors">Add your first one →</a>
   </div>
   {% endif %}

@@ -21,8 +21,8 @@ class Transaction:
     def __post_init__(self) -> None:
         if self.amount <= 0:
             raise ValueError("amount must be greater than zero")
-        if self.category.lower() not in {c.lower() for c in VALID_CATEGORIES}:
-            raise ValueError(f"category must be one of {VALID_CATEGORIES}")
+        if not self.category.strip():
+            raise ValueError("category cannot be empty")
         if isinstance(self.date, str):
             self.date = date.fromisoformat(self.date)
 
@@ -82,8 +82,8 @@ class RecurringTransaction:
     def __post_init__(self) -> None:
         if self.amount <= 0:
             raise ValueError("amount must be greater than zero")
-        if self.category.lower() not in {c.lower() for c in VALID_CATEGORIES}:
-            raise ValueError(f"category must be one of {VALID_CATEGORIES}")
+        if not self.category.strip():
+            raise ValueError("category cannot be empty")
         if self.frequency not in VALID_FREQUENCIES:
             raise ValueError(f"frequency must be one of {VALID_FREQUENCIES}")
         if isinstance(self.last_applied, str):
@@ -149,8 +149,8 @@ class BudgetLimit:
     amount: float
 
     def __post_init__(self) -> None:
-        if self.category.lower() not in {c.lower() for c in VALID_CATEGORIES}:
-            raise ValueError(f"category must be one of {VALID_CATEGORIES}")
+        if not self.category.strip():
+            raise ValueError("category cannot be empty")
         if self.category.lower() == "income":
             raise ValueError("budget limits cannot be set on the income category")
         if self.amount <= 0:

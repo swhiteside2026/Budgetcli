@@ -6,19 +6,20 @@
   <title>{% block title %}BudgetBalancer{% endblock %}</title>
   <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.css" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}" />
 </head>
 
 {% set cat_badge = {
-  'income':        'badge-success',
-  'food':          'badge-warning',
-  'transport':     'badge-info',
-  'rent':          'badge-error',
-  'utilities':     'badge-neutral',
-  'entertainment': 'badge-accent',
-  'health':        'badge-primary',
-  'investment':    'badge-secondary',
-  'hysa':          'badge-secondary',
-  'other':         'badge-ghost'
+  'income':        'cat-badge-4',
+  'food':          'cat-badge-6',
+  'transport':     'cat-badge-3',
+  'rent':          'cat-badge-5',
+  'utilities':     'cat-badge-1',
+  'entertainment': 'cat-badge-2',
+  'health':        'cat-badge-4',
+  'investment':    'cat-badge-2',
+  'hysa':          'cat-badge-3',
+  'other':         'cat-badge-n'
 } %}
 
 <body class="bg-base-100 min-h-screen">
@@ -179,7 +180,8 @@
             <button type="submit"
                     title="{{ theme_name }}"
                     class="w-6 h-6 rounded-full transition-transform hover:scale-110"
-                    style="background-color: {{ theme_color }}; {% if current_theme == theme_id %}outline: 2px solid oklch(var(--bc) / 0.8); outline-offset: 2px; transform: scale(1.15);{% endif %}">
+                    style="background-color: {{ theme_color }}; {% if current_theme == theme_id %}outline: 2px solid oklch(var(--bc) / 0.8); outline-offset: 2px; transform: scale(1.15);{% endif %}"
+                    aria-pressed="{{ 'true' if current_theme == theme_id else 'false' }}">
             </button>
           </form>
           {% endfor %}
@@ -189,7 +191,7 @@
       <!-- Balance footer -->
       <div class="mx-3 mb-4 rounded-xl p-4 bg-base-300">
         <p class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-1">All-time balance</p>
-        <p class="text-2xl font-bold {{ 'text-emerald-600' if global_balance >= 0 else 'text-red-500' }}">
+        <p class="text-2xl font-bold" style="color: {{ 'var(--accent)' if global_balance >= 0 else 'var(--status-over)' }}">
           {{ "+" if global_balance >= 0 else "−" }}${{ "%.2f"|format(global_balance_abs) }}
         </p>
         <p class="text-xs text-base-content/50 mt-0.5">{{ "Net positive" if global_balance >= 0 else "Net deficit" }}</p>
@@ -300,14 +302,14 @@ function updateBellBadge(count) {
       </div>
 
       <!-- Live transcript -->
-      <p id="voice_transcript" class="text-center text-sm text-gray-400 italic min-h-5 mb-3 px-2"></p>
+      <p id="voice_transcript" class="text-center text-sm text-base-content/50 italic min-h-5 mb-3 px-2"></p>
 
       <!-- Feedback area -->
       <div id="voice_feedback" class="min-h-5 mb-4"></div>
 
       <!-- Confirmation panel (hidden until a parseable command is heard) -->
       <div id="voice_confirm" class="hidden rounded-xl border border-base-300 bg-base-200/50 p-4 mb-4">
-        <p id="confirm_text" class="font-semibold text-gray-800 text-sm mb-3 text-center"></p>
+        <p id="confirm_text" class="font-semibold text-base-content text-sm mb-3 text-center"></p>
         <div class="flex gap-2">
           <button id="voice_confirm_btn" onclick="confirmVoiceAdd()" class="btn btn-primary btn-sm rounded-xl flex-1">Confirm</button>
           <button onclick="cancelVoiceAdd()" class="btn btn-ghost btn-sm rounded-xl flex-1">Cancel</button>
@@ -315,10 +317,10 @@ function updateBellBadge(count) {
       </div>
 
       <!-- Command hints -->
-      <p class="text-xs text-gray-400 text-center">
-        Try: <span class="font-medium text-gray-500">"add 12 to food"</span>
+      <p class="text-xs text-base-content/50 text-center">
+        Try: <span class="font-medium text-base-content/70">"add 12 to food"</span>
         &nbsp;·&nbsp;
-        <span class="font-medium text-gray-500">"summary"</span>
+        <span class="font-medium text-base-content/70">"summary"</span>
       </p>
     </div>
 
@@ -442,10 +444,12 @@ function updateBellBadge(count) {
   function setFeedback(text, type) {
     var e = el('voice_feedback');
     if (!e) return;
-    if (!text) { e.textContent = ''; e.className = 'min-h-5 mb-4'; return; }
+    if (!text) { e.textContent = ''; e.className = 'min-h-5 mb-4'; e.style.color = ''; return; }
     e.textContent = text;
-    var cls = { success:'text-sm font-semibold text-emerald-600', error:'text-sm font-semibold text-red-500', info:'text-sm text-gray-600' };
-    e.className = 'min-h-5 mb-4 rounded-xl p-3 bg-base-200 ' + (cls[type] || cls.info);
+    var bold = (type === 'success' || type === 'error') ? ' font-semibold' : '';
+    e.className = 'min-h-5 mb-4 rounded-xl p-3 bg-base-200 text-sm' + bold;
+    var colors = { success: 'var(--accent)', error: 'var(--status-over-text)', info: 'var(--text-muted)' };
+    e.style.color = colors[type] || colors.info;
   }
 
   function setMicState(on) {

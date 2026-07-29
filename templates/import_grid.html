@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Grid Import Review — BudgetBalancer{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div>
+  <h1 class="text-2xl font-bold text-base-content">Grid Import Review</h1>
+  <p class="text-primary/70 text-sm mt-0.5">Confirm settings before writing to your ledger</p>
+</div>
+
+{% if sheet_names|length > 1 %}
+<!-- Sheet picker -->
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm px-6 py-4">
+  <div class="flex items-center gap-3 flex-wrap">
+    <span class="text-sm font-semibold text-base-content/80">Sheet:</span>
+    <form method="GET" action="{{ url_for('import_grid_review') }}" class="flex items-center gap-2">
+      <select name="sheet" onchange="this.form.submit()"
+              class="select select-bordered select-sm rounded-xl border-base-300 focus:border-primary">
+        {% for s in sheet_names %}
+        <option value="{{ s }}" {{ 'selected' if s == selected_sheet else '' }}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <noscript><button type="submit" class="btn btn-ghost btn-sm rounded-xl">Switch</button></noscript>
+    </form>
+    <span class="text-xs text-base-content/40">
+      {{ num_cols }} column{{ 's' if num_cols != 1 else '' }} &middot;
+      {{ row_meta|length }} row{{ 's' if row_meta|length != 1 else '' }}
+    </span>
+  </div>
+</div>
+{% endif %}
+
+{% if col_headers %}
+<!-- Detected column headers -->
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm px-6 py-4">
+  <p class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mb-2">Detected month columns</p>
+  <div class="flex flex-wrap gap-1.5">
+    {% for h in col_headers %}
+    <span class="badge badge-ghost badge-sm font-mono text-base-content/60">{{ h or '—' }}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<form method="POST" action="{{ url_for('import_grid_confirm') }}" id="grid_confirm_form">
+<input type="hidden" name="sheet" value="{{ selected_sheet }}">
+
+<!-- Date settings -->
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm">
+  <div class="px-6 pt-5 pb-2 flex items-center gap-2">
+    <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: var(--surface-2);">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" style="color: var(--accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    </div>
+    <h2 class="font-bold text-base-content">Date Settings</h2>
+  </div>
+  <div class="px-6 pb-6 flex flex-wrap gap-5 items-end">
+    <div class="form-control">
+      <label class="label py-1">
+        <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">First column month</span>
+      </label>
+      <select name="anchor_month" id="anchor_month" onchange="updateSummary()"
+              class="select select-bordered select-sm rounded-xl border-base-300 focus:border-primary">
+        {% set month_names = ['January','February','March','April','May','June','July','August','September','October','November','December'] %}
+        {% for m in month_names %}
+        <option value="{{ loop.index }}" {{ 'selected' if loop.index == today.month else '' }}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-control">
+      <label class="label py-1">
+        <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Year</span>
+      </label>
+      <select name="anchor_year" id="anchor_year" onchange="updateSummary()"
+              class="select select-bordered select-sm rounded-xl border-base-300 focus:border-primary">
+        {% for y in range(today.year - 5, today.year + 2) %}
+        <option value="{{ y }}" {{ 'selected' if y == today.year else '' }}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-control">
+      <label class="label py-1">
+        <span class="label-text text-xs font-semibold uppercase tracking-wider text-gray-500">Day of month</span>
+        <span class="label-text-alt text-base-content/30">default 1st</span>
+      </label>
+      <input type="number" name="day_of_month" id="day_of_month" value="1" min="1" max="28"
+             onchange="updateSummary()"
+             class="input input-bordered input-sm rounded-xl border-base-300 focus:border-primary w-24" />
+    </div>
+    <p class="text-xs text-base-content/40 pb-1.5">
+      Each column advances one month. Days &gt; 28 are clamped to the last day of the month.
+    </p>
+  </div>
+</div>
+
+<!-- Row configuration -->
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm">
+  <div class="px-6 pt-5 pb-2 flex items-center gap-2">
+    <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: var(--surface-2);">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" style="color: var(--accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+      </svg>
+    </div>
+    <h2 class="font-bold text-base-content">Rows</h2>
+    <span class="text-sm text-base-content/30">— {{ row_meta|length }} item{{ 's' if row_meta|length != 1 else '' }}</span>
+  </div>
+
+  {% if row_meta %}
+  <div class="overflow-x-auto px-2 pb-4">
+    <table class="table table-sm w-full">
+      <thead>
+        <tr class="text-xs uppercase tracking-wide text-base-content/50 border-b border-base-200/50">
+          <th class="font-semibold py-3">Row / Bill name</th>
+          <th class="font-semibold">Type</th>
+          <th class="font-semibold text-right pr-6">Non-blank cells</th>
+          <th class="font-semibold">Recurring suggestion</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in row_meta %}
+        <tr class="hover:bg-base-200/50 border-b border-base-200/50">
+          <td class="font-medium text-base-content py-3">{{ row.name }}</td>
+          <td>
+            <select name="row_type_{{ loop.index0 }}" onchange="updateSummary()"
+                    class="select select-bordered select-xs rounded-lg border-base-300 focus:border-primary">
+              <option value="expense" {{ 'selected' if row.default_type == 'expense' else '' }}>Expense</option>
+              <option value="income"  {{ 'selected' if row.default_type == 'income'  else '' }}>Income</option>
+              <option value="skip"    {{ 'selected' if row.default_type == 'skip'    else '' }}>Skip</option>
+            </select>
+          </td>
+          <td class="text-right pr-6 text-base-content/60 tabular-nums">{{ row.cell_count }}</td>
+          <td>
+            {% if row.steady and row.suggested_amount is not none %}
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="recurring_{{ loop.index0 }}" value="1" class="checkbox checkbox-xs">
+              <span class="text-xs text-base-content/70">${{ "%.2f"|format(row.suggested_amount) }}/mo</span>
+            </label>
+            {% else %}
+            <span class="text-xs text-base-content/30">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-10 text-base-content/30">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+    </svg>
+    <p class="font-medium text-base-content/50">No data rows detected in this sheet.</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Summary -->
+<div class="rounded-2xl border border-base-200 bg-base-100 shadow-sm px-6 py-5">
+  <div class="flex items-center gap-2 mb-4">
+    <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: var(--surface-2);">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" style="color: var(--accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      </svg>
+    </div>
+    <h2 class="font-bold text-base-content">Summary</h2>
+  </div>
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+    <div>
+      <p class="text-2xl font-bold" style="color: var(--accent);" id="sum_total">—</p>
+      <p class="text-xs text-base-content/50 mt-0.5">Estimated transactions</p>
+    </div>
+    <div>
+      <p class="text-lg font-semibold" style="color: var(--accent);" id="sum_income">—</p>
+      <p class="text-xs text-base-content/50 mt-0.5">Income rows</p>
+    </div>
+    <div>
+      <p class="text-lg font-semibold" style="color: var(--status-over);" id="sum_expense">—</p>
+      <p class="text-xs text-base-content/50 mt-0.5">Expense rows</p>
+    </div>
+    <div>
+      <p class="text-lg font-semibold text-base-content/40" id="sum_skip">—</p>
+      <p class="text-xs text-base-content/50 mt-0.5">Skipped rows</p>
+    </div>
+  </div>
+  <p class="text-xs text-base-content/40 mt-4">
+    Future months and duplicate transactions are excluded at import time.
+    Categories are stored exactly as written — row names are used verbatim.
+  </p>
+</div>
+
+<!-- Actions -->
+<div class="flex flex-wrap items-center gap-3 pb-2">
+  <button type="submit" class="btn btn-primary btn-sm rounded-xl px-8"
+          {{ 'disabled' if not row_meta else '' }}>
+    Confirm Import
+  </button>
+  <a href="{{ url_for('import_excel') }}" class="btn btn-outline btn-sm rounded-xl border-base-300 text-primary">
+    Upload Different File
+  </a>
+  <a href="{{ url_for('transactions') }}" class="btn btn-ghost btn-sm rounded-xl text-error/70 hover:bg-error/10">
+    Cancel
+  </a>
+</div>
+
+</form>
+
+<script>
+var ROWS_META_JS = {{ row_meta_js | tojson }};
+
+function updateSummary() {
+  var total = 0, incomeCount = 0, expenseCount = 0, skipCount = 0;
+  ROWS_META_JS.forEach(function(row, i) {
+    var sel = document.querySelector('select[name="row_type_' + i + '"]');
+    if (!sel) return;
+    var t = sel.value;
+    if (t === 'skip') { skipCount++; return; }
+    total += row.cell_count;
+    if (t === 'income') incomeCount += row.cell_count;
+    else expenseCount += row.cell_count;
+  });
+  document.getElementById('sum_total').textContent = total;
+  document.getElementById('sum_income').textContent = incomeCount;
+  document.getElementById('sum_expense').textContent = expenseCount;
+  document.getElementById('sum_skip').textContent = skipCount;
+}
+
+updateSummary();
+</script>
+
+{% endblock %}

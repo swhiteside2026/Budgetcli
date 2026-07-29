@@ -22,9 +22,14 @@ def test_is_income_false() -> None:
     assert t.is_income is False
 
 
-def test_invalid_category_raises() -> None:
+def test_empty_category_raises() -> None:
     with pytest.raises(ValueError, match="category"):
-        Transaction(amount=10.0, category="nonsense", date=date(2026, 5, 1))
+        Transaction(amount=10.0, category="", date=date(2026, 5, 1))
+
+
+def test_custom_category_accepted() -> None:
+    t = Transaction(amount=10.0, category="Spotify", date=date(2026, 5, 1))
+    assert t.category == "Spotify"
 
 
 def test_zero_amount_raises() -> None:
@@ -69,9 +74,14 @@ def test_budget_limit_valid() -> None:
     assert bl.amount == 200.0
 
 
-def test_budget_limit_invalid_category_raises() -> None:
+def test_budget_limit_empty_category_raises() -> None:
     with pytest.raises(ValueError, match="category"):
-        BudgetLimit(category="nonsense", amount=100.0)
+        BudgetLimit(category="", amount=100.0)
+
+
+def test_budget_limit_custom_category_accepted() -> None:
+    bl = BudgetLimit(category="Spotify", amount=20.0)
+    assert bl.category == "Spotify"
 
 
 def test_budget_limit_zero_amount_raises() -> None:
@@ -105,9 +115,14 @@ def test_recurring_invalid_amount_raises() -> None:
         RecurringTransaction(amount=0.0, category="rent", frequency="monthly")
 
 
-def test_recurring_invalid_category_raises() -> None:
+def test_recurring_empty_category_raises() -> None:
     with pytest.raises(ValueError, match="category"):
-        RecurringTransaction(amount=100.0, category="nonsense", frequency="monthly")
+        RecurringTransaction(amount=100.0, category="", frequency="monthly")
+
+
+def test_recurring_custom_category_accepted() -> None:
+    rt = RecurringTransaction(amount=100.0, category="Listerhill Land Mortgage", frequency="monthly")
+    assert rt.category == "Listerhill Land Mortgage"
 
 
 def test_recurring_invalid_frequency_raises() -> None:
